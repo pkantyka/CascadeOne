@@ -21,6 +21,9 @@ import urllib.request
 import urllib.error
 
 from telemetry import Telemetry
+from adapters import normalize
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'cascades'))
+from runtime import Cascade
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -67,7 +70,6 @@ def validate_result(req,pred,fast=False):
     answers=pred.get("answers")
     if not isinstance(answers,dict) or set(answers)!=set(req["questions"]):
         raise ValueError("missing or extra answers")
-    confidence=[]
     for qid,question in req["questions"].items():
         answer=answers[qid]
         probs=answer.get("probabilities")
@@ -77,12 +79,7 @@ def validate_result(req,pred,fast=False):
             raise ValueError("invalid probabilities")
         if abs(sum(probs.values())-1)>0.002:
             raise ValueError("probabilities not normalized")
-        if fast:
-            v=answer.get("confidence")
-            if type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=1:
-                raise ValueError("invalid fast confidence")
-            confidence.append(v)
-    return min(confidence) if fast else None
+    return True
 
 def score_gold(req,pred,gold):
     if gold is None:
@@ -108,12 +105,11 @@ def score_gold(req,pred,gold):
             "hard_request_exact":all(hard) if len(hard)==len(scores) else None,
             "questions":len(scores)}
 
-def load_dataset(path):
+def load_dataset(path,adapter="typed_decisions_v1",selection=None):
+    raw_rows,_=normalize(path,adapter,selection)
     rows=[]
     seen=set()
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        if not line.strip(): continue
-        item=json.loads(line)
+    for item in raw_rows:
         key=item["id"]
         if not isinstance(key,str) or not key or key in seen: raise ValueError("invalid or duplicate request id")
         seen.add(key)
@@ -132,8 +128,8 @@ def timed(url,req,timeout,fast=False):
     start=time.perf_counter_ns()
     result=request_json(url.rstrip("/")+"/v1/systemone",req,timeout)
     elapsed=(time.perf_counter_ns()-start)/1e6
-    conf=validate_result(req,result,fast=fast)
-    return result,elapsed,conf
+    validate_result(req,result,fast=fast)
+    return result,elapsed
 
 def get_git():
     try:
@@ -169,12 +165,14 @@ def summarize(rows,phase):
                 metric["gold_delta_pp_vs_strong_only"]=None
     return result
 
-def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026,dataset_identity=None):
+def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026,dataset_identity=None,adapter="typed_decisions_v1",selection=None,setup_identity=None):
     config=json.loads(Path(config_path).read_text(encoding="utf-8"))
     if config.get("schema")!="cascadeone-cascade-v0.1": raise ValueError("wrong cascade schema")
-    if not (0<=config["threshold"]<=1): raise ValueError("bad threshold")
+    cascade=Cascade(config)
     if repeats<1 or warmup<0: raise ValueError("invalid repeats/warmup")
-    rows=load_dataset(dataset_path)
+    selection=selection or {"type":"all"}
+    rows=load_dataset(dataset_path,adapter,selection)
+    _,normalized_sha=normalize(dataset_path,adapter,selection)
     dest=Path(output)
     if dest.exists(): raise FileExistsError("run output already exists")
     fast_url=config["fast"]["url"]
@@ -197,11 +195,13 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
             "schema":"cascadeone-run-v0.1","status":"complete",
             "created_utc":utc(),"cascade_id":config["id"],"phase":phase,
             "cascade_config_sha256":sha(config_path),"dataset_sha256":sha(dataset_path),
-            "repeats":repeats,"warmup":warmup,"seed":seed,"threshold":config["threshold"],
+            "repeats":repeats,"warmup":warmup,"seed":seed,"routing":config["routing"],
             "models": {"fast":config["fast"],"strong":config["strong"]},
             "http_identity":identities,"code_commit":get_git(),
             "n_requests":len(rows),"execution":"single_client_sequential_http",
             "dataset_identity":dataset_identity or {"mode":"local_unregistered","id":None,"split":None},
+            "benchmark_setup":setup_identity or {"adapter":adapter,"selection":selection},
+            "normalized_requests_sha256":normalized_sha,
             "community_source_sha256":sha(Path(__file__).resolve().parents[1]/"distribution-manifest.json") if (Path(__file__).resolve().parents[1]/"distribution-manifest.json").is_file() else None,
             "measurement_note":"client wall-clock HTTP; no cached answers; CPU/GPU telemetry host-global",
             "gold_coverage":"all" if all(x.get("gold") is not None for x in rows) else "partial_or_none",
@@ -226,20 +226,25 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
                         for arm in order:
                             req=case["request"]
                             started=time.perf_counter_ns()
-                            fast_ms=strong_ms=0.
-                            escalated=True
-                            fast_conf=None
                             if arm=="cascade":
-                                fast_pred,fast_ms,fast_conf=timed(fast_url,req,timeout,True)
-                                escalated=(fast_conf is None or fast_conf<config["threshold"])
-                                if not escalated: selected=fast_pred
-                            if escalated:
-                                selected,strong_ms,_=timed(strong_url,req,timeout,False)
+                                outcome=cascade.execute(req,timeout,timed)
+                                selected=outcome.response
+                                route=outcome.route
+                                fast_ms=outcome.fast_ms
+                                strong_ms=outcome.strong_ms
+                                escalated=outcome.escalated
+                            else:
+                                selected,strong_ms=timed(strong_url,req,timeout,False)
+                                fast_ms=0.0
+                                escalated=True
+                                route={"policy":"strong_only","escalated":True,
+                                       "reason":"baseline","signals":{},
+                                       "fast_executed":False,"strong_executed":True}
                             elapsed=(time.perf_counter_ns()-started)/1e6
                             measure={
                                 "id":case["id"],"repeat":rep,"arm":arm,"escalated":escalated,
                                 "domain":case.get("domain","unspecified"),
-                                "fast_min_confidence":fast_conf,"latency_ms":elapsed,
+                                "routing":route,"latency_ms":elapsed,
                                 "fast_ms":fast_ms,"strong_ms":strong_ms,
                                 "quality":score_gold(req,selected,case.get("gold"))
                             }
@@ -267,22 +272,55 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--cascade",type=Path,required=True)
-    group=p.add_mutually_exclusive_group(required=True)
+    p.add_argument("--setup",type=Path,help="Benchmark-owned dataset adapter/selection and cascade config")
+    p.add_argument("--cascade",type=Path)
+    group=p.add_mutually_exclusive_group()
     group.add_argument("--dataset",type=Path)
     group.add_argument("--dataset-id")
-    p.add_argument("--dataset-split",choices=("calibration","test"),default="test")
+    p.add_argument("--adapter",default="typed_decisions_v1")
     p.add_argument("--output",type=Path,required=True)
     p.add_argument("--repeats",type=int,default=2)
     p.add_argument("--warmup",type=int,default=3)
-    p.add_argument("--phase",choices=["colocated","strong-alone"],default="colocated")
+    p.add_argument("--phase",choices=("colocated","strong-alone"),default="colocated")
     args=p.parse_args()
+    root=Path(__file__).resolve().parents[1]
     identity=None
-    dataset=args.dataset
-    if args.dataset_id:
-        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"datasets"))
-        from catalog import resolved
-        dataset,identity=resolved(args.dataset_id,args.dataset_split)
-    print(json.dumps(run(args.cascade,dataset,args.output,args.repeats,args.warmup,phase=args.phase,dataset_identity=identity),indent=2))
+    if args.setup:
+        if args.cascade or args.dataset or args.dataset_id or args.adapter!="typed_decisions_v1":
+            p.error("--setup may not be combined with separate --cascade/--dataset/--adapter")
+        setup=json.loads(args.setup.read_text(encoding="utf-8"))
+        if setup.get("schema")!="cascadeone-benchmark-setup-v1":
+            raise ValueError("invalid benchmark setup schema")
+        cascade=root/setup["cascade"]
+        adapter=setup["adapter"]
+        selection=setup.get("selection",{"type":"all"})
+        source=setup["dataset"]
+        sys.path.insert(0,str(root/"datasets"))
+        if "id" in source:
+            from catalog import resolve
+            dataset,identity=resolve(source["id"])
+        else:
+            dataset=root/source["path"]
+            identity={"mode":"local_unregistered","id":None}
+        setup_identity={"id":setup["id"],"adapter":adapter,
+                        "selection":selection,"config_sha256":sha(args.setup)}
+    else:
+        if args.cascade is None or (args.dataset is None and args.dataset_id is None):
+            p.error("either --setup or --cascade with --dataset/--dataset-id is required")
+        cascade=args.cascade
+        dataset=args.dataset
+        adapter=args.adapter
+        selection={"type":"all"}
+        setup_identity={"id":None,"adapter":adapter,"selection":selection}
+        if args.dataset_id:
+            sys.path.insert(0,str(root/"datasets"))
+            from catalog import resolve
+            dataset,identity=resolve(args.dataset_id)
+    print(json.dumps(run(cascade,dataset,args.output,args.repeats,args.warmup,
+                         phase=args.phase,dataset_identity=identity,
+                         adapter=adapter,selection=selection,
+                         setup_identity=setup_identity),indent=2))
+
+
 if __name__=="__main__":
     main()

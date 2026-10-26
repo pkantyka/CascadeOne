@@ -13,7 +13,7 @@ From Community root:
 
 Wait for service health/model readiness. Run:
 
-    docker compose -f cascades/basal-pico-ultra/compose.yaml run --rm benchmark python benchmarks/runner.py --cascade cascades/basal-pico-ultra/benchmark.json --dataset datasets/examples/smoke.jsonl --output output/pico-smoke
+    docker compose -f cascades/basal-pico-ultra/compose.yaml run --rm benchmark python benchmarks/runner.py --setup benchmarks/setups/pico-ultra-smoke.json --output output/pico-smoke
 
 The default threshold 0.6563522219657898 comes from the **historic H1 calibration**; it is frozen in this configuration, not recalibrated using the test population. To make a new experiment, create a new profile with explicit provenance.
 

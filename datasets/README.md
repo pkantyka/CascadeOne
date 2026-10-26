@@ -1,41 +1,32 @@
-# CascadeOne datasets: two delivery modes
+# Source datasets are independent of cascade benchmark setups
 
-Every registered dataset has a unique ID, a versioned registry entry, source/provenance/license details and pinned file hashes. It is equally valid to test on general, medical, legal or other workloads. Results from different datasets are not interchangeable.
+A source dataset is not a benchmark setup. The source registry does not map labels, construct System One requests, select questions, filter domains, tune routing or create calibration/test splits. Those decisions belong to a versioned benchmark setup under benchmarks/setups/ and its named adapter.
 
-## A. Download & Prepare (source data stays outside the Git repo)
+Two delivery modes share the same contract:
+
+- **downloadable**: a pinned raw upstream file is acquired on the user's machine from Hugging Face (respecting upstream access and licensing); exact source bytes and SHA-256 are verified.
+- **bundled**: a repository-owned raw source file is committed with an explicit checksum; redistributable only where permitted.
+
+Use:
 
     python datasets/catalog.py list
-    python datasets/catalog.py prepare n4ze3m-typed-decisions-v1
-    python datasets/catalog.py verify n4ze3m-typed-decisions-v1
-    python datasets/catalog.py path n4ze3m-typed-decisions-v1 --split test
-
-The downloader contacts the **specific pinned Hugging Face dataset revision**, verifies the original raw-file SHA-256, transforms request fields and Gold using the declared adapter, and writes deterministic calibration/test partitions and their hashes to datasets/cache/prepared/. The original bytes are cached in datasets/cache/raw/. Both directories are ignored by Git and Docker builds.
-
-The source is not shipped with this repo. Access may require HF_TOKEN or acceptance of upstream terms. Scripts do **not** override usage restrictions or grant redistribution rights. If a publisher changes a pinned file, preparation fails closed. A stale/corrupt local cache also fails closed, never silently overwrites.
-
-The current n4ze3m example is an *experimental benchmark candidate* derived from an upstream TRAIN split. It has genuine source labels but **is not a certified independent benchmark**: model pretraining overlap, original Gold provenance and final licensing need review. Fixed state-level partition: 20% calibration, 30% test, 50% reserved, from SHA-256 seed 20261026. The converter does not consume predicted confidences to assign splits.
-
-## B. Bundled Dataset (actual dataset files in this Git repo)
-
     python datasets/catalog.py verify smoke-general-v1
-    python datasets/catalog.py path smoke-general-v1 --split test
+    python datasets/catalog.py acquire n4ze3m-typed-decisions-v1
+    python datasets/catalog.py verify n4ze3m-typed-decisions-v1
+    python datasets/catalog.py path n4ze3m-typed-decisions-v1
 
-The synthetic project-authored smoke sample lives in datasets/bundled/smoke/{calibration,test}.jsonl; registry.json pins row counts and checksums. Preparation for bundled data performs integrity verification only; it never downloads. This tiny sample tests integration, not production quality or performance.
+The downloadable file is placed under datasets/cache/raw/ and ignored by Git. The catalog never creates prepared datasets or splits. It never alters source content.
 
-**Bundling third-party data requires a verified right to redistribute the exact transformed files** (attribution, license notices and derivative terms as applicable). Open access on Hugging Face is not sufficient.
-
-## Benchmark with a registered dataset
+Run a specific benchmark setup:
 
     python benchmarks/runner.py \
-      --cascade cascades/laya-clef/benchmark.json \
-      --dataset-id n4ze3m-typed-decisions-v1 \
-      --dataset-split test \
-      --output output/my-unique-run
+      --setup benchmarks/setups/pico-ultra-n4ze3m.json \
+      --output output/pico-n4ze3m-run
 
-The runner verifies the registered dataset before inference and writes dataset ID, delivery mode, dataset manifest hash, split, dataset-file hash and domain to its result manifest. A custom local/private dataset can still be used with --dataset /path/file.jsonl; it is labelled local_unregistered, is never uploaded automatically, and still records a file SHA-256.
+That setup selects the cascade and its routing policy, a source dataset, an adapter and a selection rule. The adapter parses upstream n4ze3m state/questions/Gold into typed requests, entirely outside the source registry. All rows are included when selection.type=all. Example optional per-setup selection: {"type":"hash_range","start":0.0,"end":0.2,"seed":20261026}. No such selection is applied by default.
 
-## Prepared JSONL contract
+**Timing**: a batch's offline source normalization is part of the benchmark setup/provenance, but is intentionally excluded from timed per-request inference. Model-side preprocessing, routing, HTTP and fallback occur within the measured request path. This distinction is recorded explicitly so users do not mistake offline conversion for runtime costs.
 
-Each row must carry a stable id, typed decision request and optionally complete independent gold labels. Optional domain supports per-domain workload analysis. Supported request question types: choice, noul, score; Gold is a hard option ID ("true"/"false" for noul, decimal index for score) or a normalized categorical distribution in the runner. All inputs are UTF-8 JSONL.
+Every run records exact original source SHA-256, benchmark setup configuration hash, adapter ID, selection rule and normalized-request SHA-256. Domains and Gold provenance remain workload-specific; a label originating from a dataset or teacher does not automatically constitute independent human Gold.
 
-Use only calibration partitions to tune a routing threshold. Do not use the same rows for training, calibrating and final testing, and do not regard synthetic teacher labels as independent source Gold. Do not upload sensitive inputs or unpublished dataset rows in a PR.
+The bundled smoke-general-v1 has three synthetic rows and is only for integration testing. The pinned upstream n4ze3m file comes from a train split; exposure during model pretraining and label provenance may be unknown, so it is not certified as an independent test benchmark. Private local data can be supplied via --dataset FILE with --cascade, without uploading the original inputs.

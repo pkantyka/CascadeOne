@@ -1,8 +1,8 @@
 # Candidate architectures
 
-**Implemented reference path**: request validation → fast eligibility → fast decision → confidence-based accept/fallback → strong decision if escalated. One routing decision applies to the complete request. The baseline invokes strong directly.
+**Implemented Community runtime**: the configured policy may pre-route to strong or inspect a fast decision to accept/escalate. Confidence threshold is one supported policy, not a benchmark requirement. Built-ins include always_fast, always_strong, max_questions_pre_router and confidence_threshold; trusted plug-in policies implement before/after hooks. The baseline always invokes strong directly. One routing decision applies to the whole request.
 
-**Pre-router (concept)**: decide, before running the small model, whether a request should bypass the fast path. This can save execution time at the cost of routing errors.
+**Pre-router**: a simple question-count bypass is implemented as a confidence-free Community example. Model-based trained pre-routing remains experimental, not part of the reference package.
 
 **Post-hoc gain router (implemented experimental code in Development only)**: use confidence, margins, entropy and request properties to estimate whether strong inference will improve Gold score. This is distinct from estimating confidence of a fast answer.
 
@@ -15,3 +15,7 @@
 **Hybrid multi-expert and fusion (design/prototype)**: optional pre-router among different fast specialists, fallback to strong; optional latent fusion of both models, evaluated only under strict controls. Not part of Community v0.1 runtime.
 
 All hypotheses remain falsifiable. Their implementation and verification status must be stated separately.
+
+## Source data vs benchmark setup
+
+Source datasets remain immutable and model-neutral. A versioned setup identifies the cascade, adapter translating source records into model requests, Gold mapping, and optional filtering/sampling. The generic benchmark runner measures execution without consulting confidence itself. Offline dataset conversion is tracked in provenance, not charged to timed request latency.

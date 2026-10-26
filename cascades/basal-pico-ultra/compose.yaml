@@ -41,4 +41,4 @@ services:
     working_dir: /workspace
     profiles: [benchmark]
     volumes: ["../..:/workspace"]
-    command: [python, benchmarks/runner.py, --cascade, cascades/basal-pico-ultra/benchmark.json, --dataset-id, smoke-general-v1, --dataset-split, test, --output, output/pico-smoke]
+    command: [python, benchmarks/runner.py, --setup, benchmarks/setups/pico-ultra-smoke.json, --output, output/pico-smoke]

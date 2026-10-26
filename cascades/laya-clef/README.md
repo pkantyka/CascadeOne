@@ -17,10 +17,10 @@ From Community root:
 
 Wait for /health to become ready for both models (first load can be long). Run a tiny smoke test:
 
-    docker compose -f cascades/laya-clef/compose.yaml run --rm benchmark python benchmarks/runner.py --cascade cascades/laya-clef/benchmark.json --dataset datasets/examples/smoke.jsonl --output output/laya-smoke
+    docker compose -f cascades/laya-clef/compose.yaml run --rm benchmark python benchmarks/runner.py --setup benchmarks/setups/laya-clef-smoke.json --output output/laya-smoke
 
 Run a genuine benchmark with another unique output path and frozen dataset. The runner measures both "strong_only" and "cascade" arms while **both models are resident**. For stand-alone residency, stop fast, keep strong, use --phase strong-alone and a new output path. Compare with tools/compare_runs.py.
 
 Do not submit smoke results as real quality benchmarks.
 
-Historical R0–R4 experiments are documented in docs/development-evidence/ROUTING_EXPERIMENT_CLOSEOUT.md, but the new runner currently implements **H1 threshold gating only**, not R0–R4. The strong-only baseline in this wrapper is a separate Clef HTTP server, not the exact old experimental runner; new results must be compared to old numbers with care.
+Historical R0–R4 experiments are documented in docs/development-evidence/ROUTING_EXPERIMENT_CLOSEOUT.md, but the confidence threshold is defined by the cascade profile and not the runner; R0–R4 historical policies are not automatically reimplemented. The strong-only baseline in this wrapper is a separate Clef HTTP server, not the exact old experimental runner; new results must be compared to old numbers with care.

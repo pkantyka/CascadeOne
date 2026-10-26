@@ -1,1 +1,0 @@
-{"id":"smoke-calibration-1","request":{"model":"cascadeone","state":"The glass is empty.","questions":{"empty":{"type":"noul","instructions":"Is the glass empty?"}}},"gold":{"empty":"true"},"domain":"general"}

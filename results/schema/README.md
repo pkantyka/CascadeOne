@@ -1,9 +1,11 @@
-# Result format v0.1
+# Run output contract
 
-Every run contains manifest.json (schema in manifest.schema.json), environment.json, measurements.jsonl, telemetry.jsonl, summary.json and SHA256SUMS. The validator also checks SHA-256, complete arm counts, unique (id, repeat, arm) tuples, and phase-compatible arm names.
+Every run contains manifest.json, environment.json, measurements.jsonl, telemetry.jsonl, summary.json and SHA256SUMS.
 
-Measurements use id, repeat, arm, latency_ms, fast_ms, strong_ms, fast_min_confidence, escalated and quality (null if no Gold; otherwise per-request expected question accuracy, optional hard request-exact, question count).
+The manifest identifies a cascade and its routing policy/parameters, the source dataset's original SHA-256 and identity, the benchmark setup and adapter/selection, plus SHA-256 of the normalized selected requests. A model's confidence is not mandatory. Raw private source inputs are not copied to run output.
 
-Summary has schema cascadeone-summary-v0.1, phase, arms and telemetry. All reported mean/p95 comparisons for colocated use the same input IDs; requests and arm order are shuffled with a recorded seed.
+Each measurement contains id, repeat, arm, latency_ms, fast_ms, strong_ms, escalated, domain, optional quality and a routing object. The routing object records policy type, reason, used signals if present, and actual fast/strong execution. Confidence-based policies may record confidence; pre-routers and other policies need not.
 
-Result validation does not prove honest telemetry or proper dataset licensing. Contributor review must check methods and permissions separately.
+The summary provides all-arm and per-domain mean and tail latency, quality where available, escalation rates, and resource telemetry. strong_only and cascade are measured on the same normalized requests in colocated mode.
+
+Offline dataset adaptation is part of the benchmark setup but excluded from request latency. Per-request runtime preprocessing/transport and routing overhead are included. Structural validation and hashes do not prove input legality or measurement honesty.

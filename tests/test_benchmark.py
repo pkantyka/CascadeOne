@@ -33,7 +33,8 @@ class SmokeTests(unittest.TestCase):
         self.config=self.root/"config.json"
         self.dataset=self.root/"input.jsonl"
         self.config.write_text(json.dumps({
-            "schema":"cascadeone-cascade-v0.1","id":"mock-cascade","threshold":0.7,
+            "schema":"cascadeone-cascade-v0.1","id":"mock-cascade",
+            "routing":{"type":"confidence_threshold","parameters":{"threshold":0.7}},
             "fast":{"url":"http://fast","model_id":"test/fast","revision":"sha"},
             "strong":{"url":"http://strong","model_id":"test/strong","revision":"sha"}
         }))
@@ -56,6 +57,10 @@ class SmokeTests(unittest.TestCase):
              mock.patch.object(runner,"Telemetry",SimulatedTelemetry):
             result=runner.run(self.config,self.dataset,self.root/"r1",repeats=2,warmup=0)
             assert result["arms"]["cascade"]["escalation_rate"]==1
+            assert result["by_domain"]["legal"]["cascade"]["n"]==4
+            assert result["by_domain"]["medical"]["cascade"]["n"]==2
+            self.assertEqual(json.loads((self.root/"r1"/"manifest.json").read_text())["routing"]["type"],"confidence_threshold")
+            self.assertTrue(all("routing" in json.loads(line) for line in (self.root/"r1"/"measurements.jsonl").read_text().splitlines()))
             assert result["arms"]["cascade"]["question_expected_accuracy"]==1
             assert result["arms"]["strong_only"]["n"]==6
             assert set(result["by_domain"])=={"medical","legal"}
@@ -71,10 +76,45 @@ class SmokeTests(unittest.TestCase):
             with (self.root/"r1"/"measurements.jsonl").open("a") as f: f.write("{}\n")
             with self.assertRaisesRegex(ValueError,"SHA mismatch"):
                 validate_result.validate(self.root/"r1")
+    def test_runner_is_independent_of_confidence(self):
+        config=json.loads(self.config.read_text())
+        config["routing"]={"type":"always_fast"}
+        self.config.write_text(json.dumps(config))
+        def no_conf(url,request=None,timeout=360):
+            answer=self.fake_request(url,request,timeout)
+            if url=="http://fast/v1/systemone":
+                answer["answers"]["q"].pop("confidence",None)
+            return answer
+        with mock.patch.object(runner,"request_json",side_effect=no_conf),\
+             mock.patch.object(runner,"Telemetry",SimulatedTelemetry):
+            report=runner.run(self.config,self.dataset,self.root/"confidence-free",repeats=1,warmup=0)
+        self.assertEqual(report["arms"]["cascade"]["escalation_rate"],0)
+        self.assertTrue(validate_result.validate(self.root/"confidence-free")["valid"])
+        rows=[json.loads(s) for s in (self.root/"confidence-free"/"measurements.jsonl").read_text().splitlines()]
+        self.assertEqual({r["routing"]["policy"] for r in rows if r["arm"]=="cascade"},{"always_fast"})
+        self.assertTrue(all(r["routing"]["signals"]=={} for r in rows if r["arm"]=="cascade"))
+
+    def test_setup_resolves_registered_source_and_adapter(self):
+        import io
+        from contextlib import redirect_stdout
+        output=self.root/"setup-output"
+        setup=ROOT/"benchmarks/setups/laya-clef-smoke.json"
+        with mock.patch.object(sys,"argv",["runner.py","--setup",str(setup),"--output",str(output)]),\
+             mock.patch.object(runner,"run",return_value={"ok":True}) as call,\
+             redirect_stdout(io.StringIO()):
+            runner.main()
+        args,kwargs=call.call_args
+        self.assertEqual(Path(args[0]).name,"benchmark.json")
+        self.assertEqual(Path(args[1]).name,"source.jsonl")
+        self.assertEqual(kwargs["adapter"],"typed_decisions_v1")
+        self.assertEqual(kwargs["selection"],{"type":"all"})
+        self.assertEqual(kwargs["setup_identity"]["id"],"laya-clef-smoke")
+        self.assertEqual(kwargs["dataset_identity"]["mode"],"bundled")
+
     def test_gold_and_probability_guards(self):
         req=runner.load_dataset(self.dataset)[0]["request"]
         pred=self.fake_request("http://fast/v1/systemone")
-        self.assertAlmostEqual(runner.validate_result(req,pred,fast=True),0.6)
+        self.assertTrue(runner.validate_result(req,pred,fast=True))
         self.assertEqual(runner.score_gold(req,pred,{"q":{"a":0.3,"b":0.7}})["question_expected_accuracy"],0.3)
         pred["answers"]["q"]["probabilities"]["a"]=1.9
         with self.assertRaises(ValueError):

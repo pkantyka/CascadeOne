@@ -14,7 +14,10 @@
     "models",
     "n_requests",
     "execution",
-    "dataset_identity"
+    "dataset_identity",
+    "routing",
+    "benchmark_setup",
+    "normalized_requests_sha256"
   ],
   "properties": {
     "schema": {
@@ -63,11 +66,6 @@
         "strong"
       ]
     },
-    "threshold": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
-    },
     "dataset_identity": {
       "type": "object",
       "required": [
@@ -86,18 +84,33 @@
             "string",
             "null"
           ]
-        },
-        "split": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "manifest_sha256": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
         }
       }
+    },
+    "routing": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "benchmark_setup": {
+      "type": "object",
+      "required": [
+        "adapter",
+        "selection"
+      ]
+    },
+    "normalized_requests_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
   }
 }

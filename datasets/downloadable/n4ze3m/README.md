@@ -1,8 +1,11 @@
-# n4ze3m typed decisions — downloadable benchmark candidate
+# n4ze3m — immutable downloadable source
 
-Upstream: n4ze3m/typed-decisions-synth, revision 7b86c5eda358b0d3bf4a45d503675ea1c16cfa00, file data/train.jsonl.
-The exact upstream file SHA-256 was captured in Development's frozen 2026-10-17 source manifest. The raw file is **never included in this Git repository**.
+Hugging Face repository n4ze3m/typed-decisions-synth pinned to commit 7b86c5eda358b0d3bf4a45d503675ea1c16cfa00 and file data/train.jsonl. Raw SHA-256 is in datasets/registry.json. The source is never redistributed in this repository.
 
-Run python datasets/catalog.py prepare n4ze3m-typed-decisions-v1 to fetch and verify. The converter parses state/questions/Gold, retains declared domain, and deterministically partitions by **state fingerprint**, with 20% calibration and 30% test and remaining entries reserved.
+    python datasets/catalog.py acquire n4ze3m-typed-decisions-v1
 
-Caution: these calibration/test partitions are derived from an upstream **train** split, not an independent official holdout. Model training overlap and original label provenance are not guaranteed. Source license is marked *claimed MIT, pending independent review*. The downloader is not a license bypass; gated/authenticated access and all use restrictions still apply.
+No conversion, Gold transformation or train/test/calibration partition takes place during acquisition.
+
+Example benchmark setup: benchmarks/setups/pico-ultra-n4ze3m.json selects n4ze3m_gold_v1, mapping booleans to true/false option IDs and numeric score labels to string option IDs, and keeps all source rows. A different cascade setup can select another adapter or explicit subset without editing this dataset.
+
+The upstream input was a TRAIN split. Rights to redistribute, potential model training exposure and the provenance of source labels require independent review before describing results as an unbiased benchmark.

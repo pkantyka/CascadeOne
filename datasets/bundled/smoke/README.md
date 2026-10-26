@@ -1,3 +1,5 @@
-# Bundled integration dataset
+# Bundled smoke source
 
-This is **project-authored synthetic smoke data**, not evidence of CascadeOne accuracy or throughput. Both calibration and test samples are provided as actual files in this repo; their hashes and row counts are pinned in datasets/registry.json. Publication of the overall project still requires selecting an appropriate project license.
+The single source.jsonl file contains three project-authored synthetic typed-decision examples. No calibration/test split is imposed by the dataset registry. A benchmark setup decides if and how these examples are filtered or adapted.
+
+The sample is only a wiring/integration fixture, not evidence of decision accuracy or performance. Publication of the overall project still requires choosing an explicit project license.

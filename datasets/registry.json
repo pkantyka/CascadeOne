@@ -6,18 +6,9 @@
       "mode": "bundled",
       "domain": "general",
       "license_status": "authored_for_project; public_license_pending",
-      "purpose": "integration_smoke_only",
-      "splits": {
-        "calibration": {
-          "path": "bundled/smoke/calibration.jsonl",
-          "sha256": "a2468ad8ab00b667ac363e731882f837a101a83bbc8282be0b39cd5bdca504b5",
-          "rows": 1
-        },
-        "test": {
-          "path": "bundled/smoke/test.jsonl",
-          "sha256": "ce752832b2b879a5de675b7c6ad35eb765da4258809dbaf7176a1a1630d90428",
-          "rows": 3
-        }
+      "source": {
+        "path": "bundled/smoke/source.jsonl",
+        "sha256": "ce752832b2b879a5de675b7c6ad35eb765da4258809dbaf7176a1a1630d90428"
       }
     },
     {
@@ -25,9 +16,6 @@
       "mode": "downloadable",
       "domain": "multidomain",
       "license_status": "upstream_claim_mit; redistributability_not_verified",
-      "purpose": "reproducible_experimental_data; NOT an official held-out test",
-      "adapter": "n4ze3m-typed-gold-v1",
-      "split_seed": 20261026,
       "source": {
         "provider": "huggingface",
         "repo": "n4ze3m/typed-decisions-synth",

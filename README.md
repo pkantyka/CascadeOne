@@ -27,7 +27,7 @@ Both configurations currently target an ARM64 NVIDIA GPU (DGX Spark / NGC 26.07 
 - cascades/laya-clef/README.md
 - cascades/basal-pico-ultra/README.md
 
-On a suitable host, start the model services with Compose and run the benchmark container. The included datasets/examples/smoke.jsonl checks the end-to-end path only; it **is not a representative quality or latency benchmark**. For performance submissions, use a publicly shareable frozen dataset with documented licensing, IDs and SHA-256.
+On a suitable host, start the model services with Compose and run the benchmark container. The bundled smoke-general-v1 source checks the end-to-end path only; it **is not a representative quality or latency benchmark**. For performance submissions, use a publicly shareable frozen dataset with documented licensing, IDs and SHA-256.
 
 ## Datasets: bundled or downloadable
 
@@ -35,14 +35,14 @@ The same benchmark accepts either mode; data domain and Gold provenance remain e
 
     python datasets/catalog.py list
     python datasets/catalog.py verify smoke-general-v1
-    python datasets/catalog.py prepare n4ze3m-typed-decisions-v1
+    python datasets/catalog.py acquire n4ze3m-typed-decisions-v1
     python datasets/catalog.py verify n4ze3m-typed-decisions-v1
 
-The smoke example is bundled; the pinned n4ze3m source is downloaded to an ignored local cache and deterministically split, not shipped with Git. Use --dataset-id ID --dataset-split test in the runner. Arbitrary local/private JSONL remains available via --dataset FILE. See datasets/README.md for licensing, privacy and methodological limits.
+The smoke example is bundled; the pinned n4ze3m raw source is downloaded to an ignored local cache without conversion or splitting. Conversion, Gold mapping and optional filtering belong to a versioned benchmark setup. Run with --setup benchmarks/setups/pico-ultra-n4ze3m.json. Arbitrary local/private JSONL remains available via --dataset FILE. See datasets/README.md for licensing, privacy and methodological limits.
 
 ## Run artifacts
 
-Each run creates a new directory with manifest.json, environment.json, measurements.jsonl, telemetry.jsonl, summary.json and SHA256SUMS. Run IDs must be unique. For example:
+Each run identifies its source dataset and the benchmark setup/adapter/selection separately and creates a new directory with manifest.json, environment.json, measurements.jsonl, telemetry.jsonl, summary.json and SHA256SUMS. Run IDs must be unique. For example:
 
     python tools/validate_result.py output/my-run
     python tools/compare_runs.py --standalone output/my-solo --colocated output/my-paired

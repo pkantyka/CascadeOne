@@ -2,7 +2,7 @@
 
 CascadeOne evaluates **conditional execution of decision models**: a lightweight fast model can answer a request, while a stronger fallback model handles selected requests. The measured object is the entire inference path, including preprocessing, routing, and fallback overhead, not simply the fraction routed to the small model.
 
-The reference policy is request-level confidence gating: run the fast model once; if it is ineligible or the minimum question confidence is below a fixed, calibration-derived threshold, re-run the complete request with the strong model. Unlike online adaptive training, the threshold does not change at runtime.
+One reference policy is request-level confidence gating: run the fast model once and escalate if confidence fails a configured threshold. This is not mandatory: alternative policies may pre-route requests without running fast inference, use other signals or accept without confidence. Policies and their parameters are part of the cascade definition; the benchmark runner is policy-neutral.
 
 Model vendor and model family are implementation details. Laya/Clef and Basal Pico/Ultra are equally legitimate baseline configurations.
 

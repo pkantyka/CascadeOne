@@ -4,7 +4,7 @@
 - [x] Shared single-client benchmark runner, telemetry, structural validation
 - [x] CPU-only tests included
 - [x] Two dataset delivery modes with checksums and offline tests
-- [ ] Download and prepare the pinned HF source from a clean Community checkout
+- [ ] Download the pinned raw HF source from a clean Community checkout and run its benchmark-owned adapter
 - [ ] Final dataset licensing and Gold provenance review
 - [ ] Run both Compose stacks from this exact release on a compatible GPU host
 - [ ] Verify runtime model identity and immutable CUDA base image digests

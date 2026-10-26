@@ -38,6 +38,25 @@ def validate(root):
     if len(trials)!=expected: raise ValueError("missing measurements")
     keys={(r["id"],r["repeat"],r["arm"]) for r in trials}
     if len(keys)!=len(trials): raise ValueError("duplicate trial")
+    if not isinstance(manifest.get("routing"),dict) or not manifest["routing"].get("type"):
+        raise ValueError("missing declared routing policy")
+    if not isinstance(manifest.get("benchmark_setup"),dict) or not manifest["benchmark_setup"].get("adapter"):
+        raise ValueError("missing benchmark adapter")
+    normalized=manifest.get("normalized_requests_sha256")
+    if not isinstance(normalized,str) or len(normalized)!=64 or any(c not in "0123456789abcdef" for c in normalized):
+        raise ValueError("missing/invalid normalized input hash")
+    identity=manifest.get("dataset_identity",{})
+    if identity.get("source_sha256") is not None and identity["source_sha256"]!=manifest["dataset_sha256"]:
+        raise ValueError("reported source dataset hash mismatch")
+    for trial in trials:
+        route=trial.get("routing")
+        if not isinstance(route,dict) or route.get("escalated") is not trial.get("escalated"):
+            raise ValueError("routing decision mismatch")
+        expected_policy="strong_only" if trial["arm"]=="strong_only" else manifest["routing"]["type"]
+        if route.get("policy")!=expected_policy:
+            raise ValueError("routing policy mismatch")
+        if not isinstance(route.get("signals"),dict):
+            raise ValueError("routing signals must be an object")
     for arm in arms:
         if sum(r["arm"]==arm for r in trials)!=manifest["n_requests"]*manifest["repeats"]:
             raise ValueError("incomplete arm")

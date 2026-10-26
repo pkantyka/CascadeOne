@@ -1,7 +1,6 @@
 {
   "schema": "cascadeone-cascade-v0.1",
   "id": "laya-clef-core",
-  "threshold": 0.9,
   "fast": {
     "model_id": "convaiinnovations/laya-typed-decisions",
     "revision": "1a793eb568e6718f15941d08f85432581df534e3",
@@ -15,5 +14,12 @@
     "url": "http://strong:18357",
     "mode": "reference",
     "orders": 1
+  },
+  "routing": {
+    "type": "confidence_threshold",
+    "parameters": {
+      "threshold": 0.9,
+      "aggregation": "minimum"
+    }
   }
 }
