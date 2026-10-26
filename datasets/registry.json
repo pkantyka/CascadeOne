@@ -1,0 +1,40 @@
+{
+  "schema": "cascadeone-dataset-registry-v1",
+  "datasets": [
+    {
+      "id": "smoke-general-v1",
+      "mode": "bundled",
+      "domain": "general",
+      "license_status": "authored_for_project; public_license_pending",
+      "purpose": "integration_smoke_only",
+      "splits": {
+        "calibration": {
+          "path": "bundled/smoke/calibration.jsonl",
+          "sha256": "a2468ad8ab00b667ac363e731882f837a101a83bbc8282be0b39cd5bdca504b5",
+          "rows": 1
+        },
+        "test": {
+          "path": "bundled/smoke/test.jsonl",
+          "sha256": "ce752832b2b879a5de675b7c6ad35eb765da4258809dbaf7176a1a1630d90428",
+          "rows": 3
+        }
+      }
+    },
+    {
+      "id": "n4ze3m-typed-decisions-v1",
+      "mode": "downloadable",
+      "domain": "multidomain",
+      "license_status": "upstream_claim_mit; redistributability_not_verified",
+      "purpose": "reproducible_experimental_data; NOT an official held-out test",
+      "adapter": "n4ze3m-typed-gold-v1",
+      "split_seed": 20261026,
+      "source": {
+        "provider": "huggingface",
+        "repo": "n4ze3m/typed-decisions-synth",
+        "revision": "7b86c5eda358b0d3bf4a45d503675ea1c16cfa00",
+        "file": "data/train.jsonl",
+        "sha256": "1f3e0f751b6fdd1115cf6af4ea3ebc13545a1148614eda4f9f56ae8492c80675"
+      }
+    }
+  ]
+}

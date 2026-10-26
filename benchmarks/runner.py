@@ -4,7 +4,7 @@ Standard-library only; Python 3.12. Never uses cached predictions for timing.
 """
 from __future__ import annotations
 import argparse
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -169,7 +169,7 @@ def summarize(rows,phase):
                 metric["gold_delta_pp_vs_strong_only"]=None
     return result
 
-def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026):
+def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026,dataset_identity=None):
     config=json.loads(Path(config_path).read_text(encoding="utf-8"))
     if config.get("schema")!="cascadeone-cascade-v0.1": raise ValueError("wrong cascade schema")
     if not (0<=config["threshold"]<=1): raise ValueError("bad threshold")
@@ -201,9 +201,13 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
             "models": {"fast":config["fast"],"strong":config["strong"]},
             "http_identity":identities,"code_commit":get_git(),
             "n_requests":len(rows),"execution":"single_client_sequential_http",
+            "dataset_identity":dataset_identity or {"mode":"local_unregistered","id":None,"split":None},
             "community_source_sha256":sha(Path(__file__).resolve().parents[1]/"distribution-manifest.json") if (Path(__file__).resolve().parents[1]/"distribution-manifest.json").is_file() else None,
             "measurement_note":"client wall-clock HTTP; no cached answers; CPU/GPU telemetry host-global",
-            "gold_coverage":"all" if all(x.get("gold") is not None for x in rows) else "partial_or_none"
+            "gold_coverage":"all" if all(x.get("gold") is not None for x in rows) else "partial_or_none",
+            "workload":{"domains":dict(Counter(x.get("domain","unspecified") for x in rows)),
+                       "question_types":dict(Counter(q["type"] for x in rows for q in x["request"]["questions"].values())),
+                       "mean_questions_per_request":sum(len(x["request"]["questions"]) for x in rows)/len(rows)}
         }
         (dest/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
         rng=random.Random(seed)
@@ -234,6 +238,7 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
                             elapsed=(time.perf_counter_ns()-started)/1e6
                             measure={
                                 "id":case["id"],"repeat":rep,"arm":arm,"escalated":escalated,
+                                "domain":case.get("domain","unspecified"),
                                 "fast_min_confidence":fast_conf,"latency_ms":elapsed,
                                 "fast_ms":fast_ms,"strong_ms":strong_ms,
                                 "quality":score_gold(req,selected,case.get("gold"))
@@ -244,6 +249,7 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
         summary={
             "schema":"cascadeone-summary-v0.1","phase":phase,
             "arms":summarize(samples,phase),"telemetry":monitor.summary,
+            "by_domain":{d:summarize([v for v in samples if v["domain"]==d],phase) for d in sorted({v["domain"] for v in samples})},
             "limitations":["sequential only","no statistical CI on p95",
                            "host-wide CPU/RAM/GPU telemetry is not per-process"],
         }
@@ -262,12 +268,21 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--cascade",type=Path,required=True)
-    p.add_argument("--dataset",type=Path,required=True)
+    group=p.add_mutually_exclusive_group(required=True)
+    group.add_argument("--dataset",type=Path)
+    group.add_argument("--dataset-id")
+    p.add_argument("--dataset-split",choices=("calibration","test"),default="test")
     p.add_argument("--output",type=Path,required=True)
     p.add_argument("--repeats",type=int,default=2)
     p.add_argument("--warmup",type=int,default=3)
     p.add_argument("--phase",choices=["colocated","strong-alone"],default="colocated")
     args=p.parse_args()
-    print(json.dumps(run(args.cascade,args.dataset,args.output,args.repeats,args.warmup,phase=args.phase),indent=2))
+    identity=None
+    dataset=args.dataset
+    if args.dataset_id:
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"datasets"))
+        from catalog import resolved
+        dataset,identity=resolved(args.dataset_id,args.dataset_split)
+    print(json.dumps(run(args.cascade,dataset,args.output,args.repeats,args.warmup,phase=args.phase,dataset_identity=identity),indent=2))
 if __name__=="__main__":
     main()

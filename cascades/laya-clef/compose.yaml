@@ -33,4 +33,4 @@ services:
     working_dir: /workspace
     profiles: [benchmark]
     volumes: ["../..:/workspace"]
-    command: [python, benchmarks/runner.py, --cascade, cascades/laya-clef/benchmark.json, --dataset, datasets/examples/smoke.jsonl, --output, output/laya-smoke]
+    command: [python, benchmarks/runner.py, --cascade, cascades/laya-clef/benchmark.json, --dataset-id, smoke-general-v1, --dataset-split, test, --output, output/laya-smoke]

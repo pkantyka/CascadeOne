@@ -7,3 +7,4 @@ output/
 *.egg-info/
 .env
 .DS_Store
+datasets/cache/

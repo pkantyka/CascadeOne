@@ -15,7 +15,7 @@ def diff(reference,other):
 def compare(solo,paired):
     m0,s0=read(solo)
     m1,s1=read(paired)
-    for key in ("cascade_id","cascade_config_sha256","dataset_sha256","repeats"):
+    for key in ("cascade_id","cascade_config_sha256","dataset_sha256","dataset_identity","repeats"):
         if m0[key]!=m1[key]: raise ValueError("incompatible runs: "+key)
     if m0["phase"]!="strong-alone" or m1["phase"]!="colocated":
         raise ValueError("expected strong-alone then colocated")

@@ -40,7 +40,7 @@ class SmokeTests(unittest.TestCase):
         req={"state":"Test","questions":{"q":{"type":"choice",
                 "criteria":{"a":"A","b":"B"}}}}
         self.dataset.write_text("".join(json.dumps({"id":str(i),"request":req,
-                                             "gold":{"q":"a"}})+"\n" for i in range(3)))
+                                             "gold":{"q":"a"},"domain":"medical" if i%2 else "legal"})+"\n" for i in range(3)))
     def tearDown(self):
         self.tmp.cleanup()
     def fake_request(self,url,request=None,timeout=360):
@@ -58,6 +58,8 @@ class SmokeTests(unittest.TestCase):
             assert result["arms"]["cascade"]["escalation_rate"]==1
             assert result["arms"]["cascade"]["question_expected_accuracy"]==1
             assert result["arms"]["strong_only"]["n"]==6
+            assert set(result["by_domain"])=={"medical","legal"}
+            assert result["by_domain"]["medical"]["cascade"]["n"]==2
             assert validate_result.validate(self.root/"r1")["valid"]
             with self.assertRaises(FileExistsError):
                 runner.run(self.config,self.dataset,self.root/"r1",warmup=0)

@@ -13,7 +13,8 @@
     "warmup",
     "models",
     "n_requests",
-    "execution"
+    "execution",
+    "dataset_identity"
   ],
   "properties": {
     "schema": {
@@ -66,6 +67,37 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "dataset_identity": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "bundled",
+            "downloadable",
+            "local_unregistered"
+          ]
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "split": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
     }
   }
 }

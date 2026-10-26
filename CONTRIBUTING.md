@@ -4,7 +4,7 @@ Contribute a new cascade definition, a benchmark improvement, a useful failure r
 
 ## Submitting a run
 
-1. Use a documented cascade and a frozen dataset with explicit redistribution rights.
+1. Use a documented cascade and a frozen dataset. Select a bundled dataset only when redistribution is permitted, or use a pinned downloadable source with rights/terms respected. A private local dataset must never be committed with its raw rows.
 2. Record actual model revisions, runtime commits, inference settings, CPU/GPU and driver versions, precision, and model residency.
 3. Execute strong-only and cascade with the **same input requests and repetitions**, and store all raw measurements. No answer-cache timing or proxy/summed offline latencies.
 4. Validate the generated directory: python tools/validate_result.py PATH.

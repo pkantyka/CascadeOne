@@ -3,6 +3,9 @@
 - [x] Two model-pinned cascade definitions packaged
 - [x] Shared single-client benchmark runner, telemetry, structural validation
 - [x] CPU-only tests included
+- [x] Two dataset delivery modes with checksums and offline tests
+- [ ] Download and prepare the pinned HF source from a clean Community checkout
+- [ ] Final dataset licensing and Gold provenance review
 - [ ] Run both Compose stacks from this exact release on a compatible GPU host
 - [ ] Verify runtime model identity and immutable CUDA base image digests
 - [ ] Collect real new Community runs using the new runner and the same publicly redistributable frozen datasets
