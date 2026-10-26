@@ -147,14 +147,14 @@ def summarize(rows,phase):
     result={}
     for arm,measure in groups.items():
         lat=[x["latency_ms"] for x in measure]
-        quality=[x["quality"]["question_expected_accuracy"] for x in measure if x["quality"]]
+        quality=[x["quality"] for x in measure if x["quality"]]
         exact=[x["quality"]["hard_request_exact"] for x in measure if x["quality"] and x["quality"]["hard_request_exact"] is not None]
         result[arm]={
             "n":len(measure), "unique_requests":len(set(x["id"] for x in measure)),
             "mean_ms":statistics.mean(lat), "p50_ms":percentile(lat,0.5),
             "p95_ms":percentile(lat,0.95), "p99_ms":percentile(lat,0.99),
             "escalation_rate":sum(x["escalated"] for x in measure)/len(measure),
-            "question_expected_accuracy":statistics.mean(quality) if len(quality)==len(measure) else None,
+            "question_expected_accuracy":sum(x["question_expected_accuracy"]*x["questions"] for x in quality)/sum(x["questions"] for x in quality) if len(quality)==len(measure) else None,
             "hard_request_exact":statistics.mean(exact) if len(exact)==len(measure) else None,
             "sequential_requests_per_second":1000/statistics.mean(lat),
         }

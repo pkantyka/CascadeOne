@@ -19,6 +19,10 @@ def compare(solo,paired):
         if m0[key]!=m1[key]: raise ValueError("incompatible runs: "+key)
     if m0["phase"]!="strong-alone" or m1["phase"]!="colocated":
         raise ValueError("expected strong-alone then colocated")
+    e0=json.loads((Path(solo)/"environment.json").read_text())
+    e1=json.loads((Path(paired)/"environment.json").read_text())
+    for key in ("platform","cpu_count","gpu_query"):
+        if e0.get(key)!=e1.get(key): raise ValueError("hardware/environment mismatch: "+key)
     b=s1["arms"]["strong_only"]
     c=s1["arms"]["cascade"]
     perf=s0["arms"]["strong_only"]

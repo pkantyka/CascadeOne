@@ -7,7 +7,7 @@
     "LICENSE-REVIEW-REQUIRED.md": "7e777065518d576b8872fd8eb90f328905c71595e8d71928718327648a49ecc9",
     "README.md": "1323473fc8b1d5ce6192a122cbaf19ed834b4f64b8df2bda56a0a8f06f20eadf",
     "benchmarks/README.md": "279a23f247caf48457bbd254926e2a49c2f6f823f0e4e7cca6d40ad8bc179b01",
-    "benchmarks/runner.py": "d8a503bf9ee4d8084317369a9b3304d72d373e68e499be98eb996ffff7d2366f",
+    "benchmarks/runner.py": "25bb84d5749da6bfa32f056595505d72bb8f0b29ab169a96f143a13a5ee48a92",
     "benchmarks/telemetry.py": "89bce1e4380fcbbde924c9e0a83dac0d56ae37c8e58fccd1f0df02460880f2f0",
     "cascades/basal-pico-ultra/Dockerfile.pico": "eeb160c970114f734ba323000cdf8dd5b90f7a538f98564a161e83414e1cee8b",
     "cascades/basal-pico-ultra/Dockerfile.ultra": "bf354980fef79882f03f19a3202117bc6c96d7bec3d6b0d46b246fe8e2bab78a",
@@ -36,6 +36,7 @@
     "docs/hypotheses.md": "f105bf15275d61f8402c8aada97c248833ac548048b42b873f0431702cdec960",
     "requirements-dgx.in": "3953e5888cb38af52b10c7b7b721172fcad9273f7fc392670084e54a2d0ac689",
     "results/README.md": "24017d044c05c0b796f491e842d392ddbe62b0cb6ab5d76c4282ab6d63d796b8",
+    "results/runs/.gitkeep": "ffd070d824bdd9da69bfecd5dbf4d3b41d4e7d7d1fa3b0702d6f79cd411f686d",
     "results/schema/README.md": "d44fd20af59bfd77c6a60be9fdc2f73534434fed6be6d0e8615cb4be21dd4eb4",
     "results/schema/manifest.schema.json": "7bbe683bf907183fc3e5824cb18b787f72226420fe5e1bdad4dbf5b388f2a71a",
     "src/cascadeone/__init__.py": "d619654082a6ea1ebb4ea012d9cb952bb82fabd3ee8ea2eb244ccd9a1f701b8c",
@@ -52,7 +53,7 @@
     "src/cascadeone/training/checkpointing.py": "7ecbc136091a4173e9946ac35e47fb9aa93aef01c9b4fdafd7eba99e7b960953",
     "src/cascadeone/training/safety.py": "9c79be0461d574eaabe6ee9be96304cd8e6a20b8f33fed0159ade4ff3ba43b1f",
     "tests/test_benchmark.py": "9b125842eb8e5a499b004641fb8448df60946f78958a3cb5e80982e339fc68f1",
-    "tools/compare_runs.py": "28a76eac4a2d0b0dffead288b0abd154d2d6ad2abe25d7b9e96172ba6cacff12",
+    "tools/compare_runs.py": "c1ce8de13eb4bb39c781792985f2de6809039029842d601a333f900a4bfce5ab",
     "tools/validate_result.py": "5debdc3b9e2c8d23c4651e64db3393459c6ddd0b2c3421546c1c67fe3f6a6a46"
   }
 }
