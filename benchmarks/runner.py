@@ -106,7 +106,7 @@ def score_gold(req,pred,gold):
             "questions":len(scores)}
 
 def load_dataset(path,adapter="typed_decisions_v1",selection=None):
-    raw_rows,_=normalize(path,adapter,selection)
+    raw_rows,digest=normalize(path,adapter,selection)
     rows=[]
     seen=set()
     for item in raw_rows:
@@ -122,7 +122,7 @@ def load_dataset(path,adapter="typed_decisions_v1",selection=None):
             raise ValueError("Gold coverage mismatch")
         rows.append(item)
     if not rows: raise ValueError("dataset empty")
-    return rows
+    return rows,digest
 
 def timed(url,req,timeout,fast=False):
     start=time.perf_counter_ns()
@@ -171,8 +171,7 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
     cascade=Cascade(config)
     if repeats<1 or warmup<0: raise ValueError("invalid repeats/warmup")
     selection=selection or {"type":"all"}
-    rows=load_dataset(dataset_path,adapter,selection)
-    _,normalized_sha=normalize(dataset_path,adapter,selection)
+    rows,normalized_sha=load_dataset(dataset_path,adapter,selection)
     dest=Path(output)
     if dest.exists(): raise FileExistsError("run output already exists")
     fast_url=config["fast"]["url"]

@@ -25,4 +25,4 @@ RUN python -c "import torch; print('base torch', torch.__version__, 'cuda', torc
     python -c "import torch; print('final torch', torch.__version__, 'cuda', torch.version.cuda)"
 
 COPY . .
-CMD ["python", "-m", "cascadeone.cli", "verify-environment", "--cuda"]
+CMD ["python", "cascades/laya-clef/serve_backend.py", "--which", "fast"]

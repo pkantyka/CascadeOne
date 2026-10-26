@@ -1,54 +1,40 @@
-# CascadeOne Community — engineering preview v0.1
+# CascadeOne Community
 
-CascadeOne is an engineering workbench for conditional cascades of **typed decision models**. It is not tied to Basal, Laya, or any particular inference engine.
+**Engineering preview** of conditional cascades for typed decisions. Two reference pairs: **Laya → Clef** and **Basal Pico → Ultra**. This is not yet a GPU-validated public release.
 
-## Included
+## Quick start
 
-- **Laya → Clef**: pinned CUDA backends, confidence gating, bypass for ineligible Laya requests.
-- **Basal Omni Pico → Ultra**: pinned model revisions, independent Basal 2.3.2 (Pico) and 2.1.0 (Ultra) services, confidence gating.
-- **One benchmarking protocol**: real HTTP strong-only baseline and cascade on the same request set, sequential randomized orders, latency, Gold evaluation where supplied, best-effort host telemetry, immutable output files.
-- CPU-only unit/contract tests, run validation, comparisons, architecture/hypothesis documents.
-- Historical experiment conclusions in docs/development-evidence, **not** re-labeled as newly reproduced Community runs.
+Run CPU-only contract tests:
 
-## Status and limits
+```bash
+python -m unittest discover -s tests -v
+```
 
-This is a **first engineering preview, not a verified public release**. GPU container builds, model downloads, live reference runs and independent installation have not yet been exercised from this distributed tree. CPU-only tests validate the tooling. No empirical performance advantage is claimed for v0.1.
+List and verify source datasets (bundled or pinned/downloadable):
 
-No model weights or third-party dataset rows are redistributed. Check docs/RELEASE-READINESS.md before publishing publicly; the project license and dependencies need explicit approval.
+```bash
+python datasets/catalog.py list
+python datasets/catalog.py verify smoke-general-v1
+python datasets/catalog.py acquire n4ze3m-typed-decisions-v1
+```
 
-## Run CPU-only tests
+On a compatible ARM64 NVIDIA GPU host, follow `cascades/laya-clef/README.md` or `cascades/basal-pico-ultra/README.md` to start model services. Then run a benchmark using one explicit setup:
 
-    python -m unittest discover -s tests -v
+```bash
+python benchmarks/runner.py --setup benchmarks/setups/laya-clef-smoke.json --output output/laya-smoke
+python tools/validate_result.py output/laya-smoke
+```
 
-## Run a cascade
+The bundled smoke dataset only tests integration. No production-quality or performance claim follows from it.
 
-Both configurations currently target an ARM64 NVIDIA GPU (DGX Spark / NGC 26.07 family). See the cascade READMEs for machine-specific prerequisites, image pinning, and commands:
+## One responsibility per component
 
-- cascades/laya-clef/README.md
-- cascades/basal-pico-ultra/README.md
+- `datasets/`: original source acquisition and SHA-256 verification, **no implicit preparation or splits**.
+- `benchmarks/setups/` and `benchmarks/adapters.py`: which cascade/data to test and how to interpret source and Gold.
+- `cascades/`: model configuration, policy and execution; **confidence is optional**.
+- `benchmarks/runner.py`: strong-only versus cascade measurements and provenance; no routing policy.
+- `results/runs/`: identical submission format for maintainers and contributors.
 
-On a suitable host, start the model services with Compose and run the benchmark container. The bundled smoke-general-v1 source checks the end-to-end path only; it **is not a representative quality or latency benchmark**. For performance submissions, use a publicly shareable frozen dataset with documented licensing, IDs and SHA-256.
+For details, see `benchmarks/README.md`, `datasets/README.md`, `CONTRIBUTING.md` and `docs/`. Historic measurements are contextual evidence in `docs/development-evidence/`, not new reference runs.
 
-## Datasets: bundled or downloadable
-
-The same benchmark accepts either mode; data domain and Gold provenance remain explicit experimental variables.
-
-    python datasets/catalog.py list
-    python datasets/catalog.py verify smoke-general-v1
-    python datasets/catalog.py acquire n4ze3m-typed-decisions-v1
-    python datasets/catalog.py verify n4ze3m-typed-decisions-v1
-
-The smoke example is bundled; the pinned n4ze3m raw source is downloaded to an ignored local cache without conversion or splitting. Conversion, Gold mapping and optional filtering belong to a versioned benchmark setup. Run with --setup benchmarks/setups/pico-ultra-n4ze3m.json. Arbitrary local/private JSONL remains available via --dataset FILE. See datasets/README.md for licensing, privacy and methodological limits.
-
-## Run artifacts
-
-Each run identifies its source dataset and the benchmark setup/adapter/selection separately and creates a new directory with manifest.json, environment.json, measurements.jsonl, telemetry.jsonl, summary.json and SHA256SUMS. Run IDs must be unique. For example:
-
-    python tools/validate_result.py output/my-run
-    python tools/compare_runs.py --standalone output/my-solo --colocated output/my-paired
-
-**Never compare stand-alone GPU memory with colocated latency without labelling the phase.** Host-level telemetry includes other processes and does not establish per-model resource consumption.
-
-## Contribute
-
-See CONTRIBUTING.md. All community runs use the same format; original maintainers receive no special status. Results are only comparable within a declared dataset/protocol/model/precision envelope. No web application is included in this release.
+**Release gates:** GPU/Compose installation and live measurements, model/source licensing and third-party notices are not yet approved; see `docs/RELEASE-READINESS.md`. No website, model weights or redistributable third-party raw datasets are included.

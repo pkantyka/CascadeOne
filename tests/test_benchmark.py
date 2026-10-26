@@ -112,7 +112,7 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(kwargs["dataset_identity"]["mode"],"bundled")
 
     def test_gold_and_probability_guards(self):
-        req=runner.load_dataset(self.dataset)[0]["request"]
+        req=runner.load_dataset(self.dataset)[0][0]["request"]
         pred=self.fake_request("http://fast/v1/systemone")
         self.assertTrue(runner.validate_result(req,pred,fast=True))
         self.assertEqual(runner.score_gold(req,pred,{"q":{"a":0.3,"b":0.7}})["question_expected_accuracy"],0.3)
