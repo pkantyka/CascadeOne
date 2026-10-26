@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CascadeOne Community Run Manifest v0.1",
+  "type": "object",
+  "required": [
+    "schema",
+    "status",
+    "cascade_id",
+    "phase",
+    "cascade_config_sha256",
+    "dataset_sha256",
+    "repeats",
+    "warmup",
+    "models",
+    "n_requests",
+    "execution"
+  ],
+  "properties": {
+    "schema": {
+      "const": "cascadeone-run-v0.1"
+    },
+    "status": {
+      "const": "complete"
+    },
+    "cascade_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase": {
+      "enum": [
+        "colocated",
+        "strong-alone"
+      ]
+    },
+    "cascade_config_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "dataset_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repeats": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "warmup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "n_requests": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "execution": {
+      "const": "single_client_sequential_http"
+    },
+    "models": {
+      "type": "object",
+      "required": [
+        "fast",
+        "strong"
+      ]
+    },
+    "threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

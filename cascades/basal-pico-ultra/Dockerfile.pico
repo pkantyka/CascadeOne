@@ -1,0 +1,21 @@
+# DGX Spark ARM64. Native basal-serve eager, no vLLM inference.
+FROM nvcr.io/nvidia/vllm:26.07-py3
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    CASCADEONE_PICO_ENGINE=2.3.2
+
+RUN python -c "import platform,torch; assert platform.machine()=='aarch64'; assert torch.__version__.startswith('2.13.0a0+9186a08b2c'),torch.__version__; assert str(torch.version.cuda).startswith('13.3'),torch.version.cuda"
+
+RUN env -u PIP_CONSTRAINT python -m pip install --no-cache-dir --no-deps \
+    "basal @ https://github.com/rkinas/basal/archive/776fde6c7d50a37b1dc1cce2ec1219c056ef2d76.tar.gz" \
+    && env -u PIP_CONSTRAINT python -m pip install --no-cache-dir \
+    "transformers==5.17.0" "huggingface_hub>=0.34" \
+    "accelerate>=1.10" "safetensors>=0.6" "starlette>=0.47" \
+    "uvicorn[standard]>=0.35" "httpx>=0.28"
+
+RUN python -c "import torch,transformers,importlib.metadata as m;assert torch.__version__.startswith('2.13.0a0+9186a08b2c'); assert transformers.__version__=='5.17.0';assert m.version('basal')=='2.3.2'"
+RUN basal-serve --help >/dev/null
+WORKDIR /workspace
+ENTRYPOINT []

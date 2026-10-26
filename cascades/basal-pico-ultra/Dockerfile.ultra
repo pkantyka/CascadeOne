@@ -1,0 +1,23 @@
+# Pinned Ultra 2.1.0, same model / engine as the frozen CascadeOne Ultra results.
+# NGC provides CUDA + PyTorch; basal-serve uses native PyTorch eager.
+FROM nvcr.io/nvidia/vllm:26.07-py3
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HUB_DISABLE_TELEMETRY=1
+
+RUN python -c "import platform,torch;assert platform.machine()=='aarch64',platform.machine();assert torch.__version__.startswith('2.13.0a0+9186a08b2c'),torch.__version__;assert str(torch.version.cuda).startswith('13.3'),torch.version.cuda"
+RUN env -u PIP_CONSTRAINT python -m pip install --no-cache-dir --no-deps \
+      "basal @ https://github.com/rkinas/basal/archive/62542d31e8eb69000839c01e8f9b45da1fb80e49.tar.gz" \
+    && env -u PIP_CONSTRAINT python -m pip install --no-cache-dir \
+      "transformers==5.17.0" \
+      "huggingface_hub>=0.34" \
+      "accelerate>=1.10" \
+      "safetensors>=0.6" \
+      "starlette>=0.47" \
+      "uvicorn[standard]>=0.35" \
+      "httpx>=0.28"
+RUN python -c "import torch,transformers,importlib.metadata as m;assert torch.__version__.startswith('2.13.0a0+9186a08b2c'),torch.__version__;assert str(torch.version.cuda).startswith('13.3'),torch.version.cuda;assert m.version('basal')=='2.1.0';assert transformers.__version__=='5.17.0'"
+RUN basal-serve --help > /dev/null
+WORKDIR /work
+ENTRYPOINT []

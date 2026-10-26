@@ -1,0 +1,3 @@
+{"id":"smoke-1","request":{"model":"cascadeone","state":"A person has a cat as a pet.","questions":{"pet":{"type":"choice","instructions":"Which animal is the pet?","criteria":{"cat":"cat","dog":"dog"}}}},"gold":{"pet":"cat"}}
+{"id":"smoke-2","request":{"model":"cascadeone","state":"The number eight is even.","questions":{"even":{"type":"noul","instructions":"Is the statement true?"}}},"gold":{"even":"true"}}
+{"id":"smoke-3","request":{"model":"cascadeone","state":"A traffic light shows red.","questions":{"go":{"type":"choice","instructions":"What should the driver do?","criteria":{"stop":"stop","go":"go"}}}},"gold":{"go":"stop"}}

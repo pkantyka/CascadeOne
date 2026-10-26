@@ -1,0 +1,19 @@
+{
+  "schema": "cascadeone-cascade-v0.1",
+  "id": "basal-pico-ultra-h1",
+  "threshold": 0.6563522219657898,
+  "fast": {
+    "model_id": "Remek/basal-omni-pico",
+    "revision": "b31750af3ef1b45adfa765f73edbb84b5362983a",
+    "url": "http://fast:18357",
+    "mode": "eager",
+    "orders": 1
+  },
+  "strong": {
+    "model_id": "Remek/basal-omni-1.0-ultra",
+    "revision": "b8e214cb42d0a7a4cb2c3a93b0ba02c65d7590e4",
+    "url": "http://strong:18357",
+    "mode": "eager",
+    "orders": 1
+  }
+}
