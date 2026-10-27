@@ -74,3 +74,7 @@ evidence. Thresholds must not be re-fitted against these samples.
 For a true external-family test, add distinct pinned sources and audit
 their training overlap first; do not relabel this train-source suite
 as an independent Jev benchmark.
+
+For tests on original BANKING77/CLINC150 and better-jev-bench held-out
+sources, use [EXTERNAL-SOURCES.md](EXTERNAL-SOURCES.md); do not combine
+source-overlapping results into one independent test population.

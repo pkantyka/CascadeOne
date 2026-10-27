@@ -60,6 +60,20 @@ def hf_url(source):
     rel=str(safe_relative(source["file"]))
     return "https://huggingface.co/datasets/"+repo+"/resolve/"+revision+"/"+urllib.parse.quote(rel,safe="/")
 
+def source_url(source):
+    if source.get("provider")=="huggingface":
+        return hf_url(source)
+    if source.get("provider")=="github_raw":
+        repo,revision=source["repo"],source["revision"]
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",repo):
+            raise ValueError("invalid GitHub repository ID")
+        if not re.fullmatch(r"[a-f0-9]{40}",revision):
+            raise ValueError("unpinned GitHub revision")
+        rel=str(safe_relative(source["file"]))
+        return "https://raw.githubusercontent.com/"+repo+"/"+revision+"/"+urllib.parse.quote(rel,safe="/")
+    raise ValueError("unsupported source provider")
+
+
 def resolve(dataset_id,registry_path=REGISTRY,cache=CACHE,download=False,opener=None):
     entry=get(dataset_id,registry_path)
     source=entry["source"]
@@ -76,9 +90,10 @@ def resolve(dataset_id,registry_path=REGISTRY,cache=CACHE,download=False,opener=
             if temp.exists(): raise FileExistsError("incomplete previous download")
             headers={"User-Agent":"CascadeOne-Community/0.2"}
             token=os.getenv("HF_TOKEN")
-            if token: headers["Authorization"]="Bearer "+token
+            if token and source.get("provider")=="huggingface":
+                headers["Authorization"]="Bearer "+token
             try:
-                with opener(urllib.request.Request(hf_url(source),headers=headers),timeout=120) as response, temp.open("xb") as stream:
+                with opener(urllib.request.Request(source_url(source),headers=headers),timeout=120) as response, temp.open("xb") as stream:
                     shutil.copyfileobj(response,stream,length=1024*1024)
                 if sha(temp)!=source["sha256"]: raise ValueError("source SHA mismatch")
                 temp.rename(path)

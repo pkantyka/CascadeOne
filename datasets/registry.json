@@ -75,6 +75,97 @@
         "file": "data/train-00000-of-00001.parquet",
         "sha256": "cacb12587faa63d7f723a72d61d12bfa94b140446f5a6a0a2e1c6906ab88bf02"
       }
+    },
+    {
+      "id": "banking77-test-v1",
+      "mode": "downloadable",
+      "domain": "banking",
+      "license_status": "upstream_claim_cc-by-4.0; redistribution_not_reviewed",
+      "source": {
+        "provider": "huggingface",
+        "repo": "PolyAI/banking77",
+        "revision": "a00bafa8d1db84baced2c9032e3f227f9c486cb2",
+        "file": "data/test-00000-of-00001.parquet",
+        "sha256": "535fc96c4c2b4c2dbdeb0d4b31f24a4859620cf663d6c19c1bd1f97450c410be"
+      }
+    },
+    {
+      "id": "clinc150-plus-test-v1",
+      "mode": "downloadable",
+      "domain": "intent-oos",
+      "license_status": "upstream_claim_cc-by-3.0; redistribution_not_reviewed",
+      "source": {
+        "provider": "huggingface",
+        "repo": "clinc/clinc_oos",
+        "revision": "155b9c710419136e17307b80d0a13e68cd46b4ec",
+        "file": "plus/test-00000-of-00001.parquet",
+        "sha256": "3e60e45b25bf86543aa5df8ba4fcc674114164e6184f0197690648c2908d0102"
+      }
+    },
+    {
+      "id": "bjb-cfpb-heldout-v1",
+      "mode": "downloadable",
+      "domain": "finance",
+      "license_status": "upstream_claim_cc0-1.0; redistribution_not_reviewed",
+      "source": {
+        "provider": "github_raw",
+        "repo": "asp616848/better-jev-bench",
+        "revision": "2478dda5bf2b2c03c09bc54cf068872fd3be3334",
+        "file": "bench/heldout/cfpb_complaints.jsonl.gz",
+        "sha256": "ba7c745a8ebd74450efe22414c7365a7379a63c7ea8a24b2abf153d6485b76c8"
+      }
+    },
+    {
+      "id": "bjb-cuad-heldout-v1",
+      "mode": "downloadable",
+      "domain": "legal",
+      "license_status": "upstream_claim_cc-by-4.0; redistribution_not_reviewed",
+      "source": {
+        "provider": "github_raw",
+        "repo": "asp616848/better-jev-bench",
+        "revision": "2478dda5bf2b2c03c09bc54cf068872fd3be3334",
+        "file": "bench/heldout/cuad.jsonl.gz",
+        "sha256": "29af109abacc537e2dbdb86bebd0b6ac079cb7e07ea8041536c6a3c5f8a8e3ff"
+      }
+    },
+    {
+      "id": "bjb-civil-comments-heldout-v1",
+      "mode": "downloadable",
+      "domain": "moderation",
+      "license_status": "upstream_claim_cc0-1.0; redistribution_not_reviewed",
+      "source": {
+        "provider": "github_raw",
+        "repo": "asp616848/better-jev-bench",
+        "revision": "2478dda5bf2b2c03c09bc54cf068872fd3be3334",
+        "file": "bench/heldout/civil_comments.jsonl.gz",
+        "sha256": "bb53e207d76ae5c2203db4cfe88436fee4d15b585c64b6ac25da95fa4bcf50dd"
+      }
+    },
+    {
+      "id": "bjb-banking77-heldout-v1",
+      "mode": "downloadable",
+      "domain": "banking",
+      "license_status": "upstream_license_see_better_jev_bench; redistribution_not_reviewed",
+      "source": {
+        "provider": "github_raw",
+        "repo": "asp616848/better-jev-bench",
+        "revision": "2478dda5bf2b2c03c09bc54cf068872fd3be3334",
+        "file": "bench/heldout/banking77.jsonl.gz",
+        "sha256": "40a9db1624df4c8edf3710f69bd56b4322d84f586cfbc595e65763457cd9d6f9"
+      }
+    },
+    {
+      "id": "bjb-clinc150-heldout-v1",
+      "mode": "downloadable",
+      "domain": "intent-oos",
+      "license_status": "upstream_license_see_better_jev_bench; redistribution_not_reviewed",
+      "source": {
+        "provider": "github_raw",
+        "repo": "asp616848/better-jev-bench",
+        "revision": "2478dda5bf2b2c03c09bc54cf068872fd3be3334",
+        "file": "bench/heldout/clinc150.jsonl.gz",
+        "sha256": "3cd38f92e62dd242a99c40fd8b0b77d69dd93681adae9774dbc66d1b8c70fbdc"
+      }
     }
   ]
 }

@@ -34,3 +34,11 @@ The smoke data are not a real performance benchmark. No concurrency/energy or pe
 See [CONFIDENCE-WIDE.md](CONFIDENCE-WIDE.md) for frozen multi-source
 Pico -> confidence -> Ultra runs (three live arms including Pico-only),
 raw downloads, exclusions and paired uncertainty estimates.
+
+## External confidence benchmark
+
+`python benchmarks/run_confidence_wide.py --suite external --dry-run`
+preflights raw sources, Gold and frozen input selection; add
+`--output-root output/confidence-external-20261027` to benchmark with
+co-resident Pico and Ultra servers. Details:
+[EXTERNAL-SOURCES.md](EXTERNAL-SOURCES.md).

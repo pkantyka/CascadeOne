@@ -3,6 +3,7 @@
 This module belongs to the benchmark setup, never the source dataset registry.
 Offline source normalization is recorded but not included in timed inference.
 """
+import gzip
 import hashlib
 from collections import Counter
 import json
@@ -153,6 +154,83 @@ def hellaswag_gold(row):
     }
 
 
+def intent_gold(row,column,source,nclasses):
+    names=row.get("__class_names",{}).get(column)
+    if not isinstance(names,list) or len(names)!=nclasses or len(set(names))!=nclasses:
+        raise ValueError("missing immutable source ClassLabel names")
+    label=row.get(column)
+    if type(label) is not int or not 0<=label<nclasses:
+        raise ValueError("invalid intent class index")
+    utterance=row.get("text")
+    if not isinstance(utterance,str) or not utterance.strip():
+        raise ValueError("missing intent utterance")
+    return {
+        "id":source+":"+str(row["__source_row_number"]),
+        "domain":source,
+        "request":{"state":utterance,"questions":{"intent":{
+            "type":"choice",
+            "instructions":"Classify the user utterance using the provided intent taxonomy. "
+                           "Choose 'oos' when no in-scope intent applies.",
+            "criteria":{str(i):name for i,name in enumerate(names)}
+        }}},
+        "gold":{"intent":str(label)}
+    }
+
+
+def banking77_test_gold(row):
+    return intent_gold(row,"label","banking77",77)
+
+
+def clinc150_plus_test_gold(row):
+    return intent_gold(row,"intent","clinc150-plus",151)
+
+
+def better_jev_heldout_gold(row):
+    """Adapt held-out BJB options without reducing the original option count."""
+    key=row.get("item_id")
+    source=row.get("dataset")
+    questions=row.get("request",{}).get("questions")
+    expected=row.get("expected")
+    state=row.get("request",{}).get("state")
+    if not isinstance(key,str) or not key or not isinstance(source,str):
+        raise ValueError("invalid better-jev item identity")
+    if not isinstance(state,str) or not isinstance(questions,dict) or not questions:
+        raise ValueError("invalid better-jev request")
+    if not isinstance(expected,dict) or set(expected)!=set(questions):
+        raise ValueError("better-jev Gold does not match question IDs")
+    adapted={}
+    gold={}
+    for qid,question in questions.items():
+        options=question.get("options")
+        kind=question.get("type")
+        answer=expected[qid]
+        if not isinstance(options,list) or not 2<=len(options)<=200:
+            raise ValueError("invalid better-jev option width")
+        if not all(isinstance(x,str) and x for x in options) or len(set(options))!=len(options):
+            raise ValueError("ambiguous better-jev options")
+        if answer not in options:
+            raise ValueError("Gold is not one of the options")
+        if kind=="choice":
+            criteria={str(i):option for i,option in enumerate(options)}
+            gold[qid]=str(options.index(answer))
+        elif kind=="score":
+            criteria=options
+            gold[qid]=str(options.index(answer))
+        elif kind=="noul":
+            if set(options)!={"Yes","No"} or len(options)!=2:
+                raise ValueError("cannot map non-Yes/No BJB noul safely")
+            criteria={"true":"Yes","false":"No"}
+            gold[qid]="true" if answer=="Yes" else "false"
+        else:
+            raise ValueError("unknown better-jev primitive")
+        adapted[qid]={"type":kind,"criteria":criteria,
+                      "instructions":question.get("instructions","")}
+    return {"id":"better-jev:"+key,
+            "domain":"better-jev:"+source,
+            "request":{"state":state,"questions":adapted},
+            "gold":gold}
+
+
 def source_rows(path):
     """Parquet readout happens in benchmark adapter, not the dataset catalog."""
     path=Path(path)
@@ -161,14 +239,21 @@ def source_rows(path):
             import pyarrow.parquet as pq
         except ImportError as exc:
             raise RuntimeError("Parquet benchmarks require pyarrow==21.0.0") from exc
+        reader=pq.ParquetFile(path)
+        metadata=reader.schema_arrow.metadata or {}
+        hf=json.loads(metadata.get(b"huggingface",b"{}"))
+        class_names={key:value["names"] for key,value in hf.get("info",{}).get("features",{}).items()
+                     if isinstance(value,dict) and value.get("_type")=="ClassLabel"}
         i=0
-        for batch in pq.ParquetFile(path).iter_batches(batch_size=1024):
+        for batch in reader.iter_batches(batch_size=1024):
             for row in batch.to_pylist():
                 row["__source_row_number"]=i
+                row["__class_names"]=class_names
                 i+=1
                 yield row
     else:
-        with path.open(encoding="utf-8") as src:
+        opener=gzip.open if path.suffix==".gz" else open
+        with opener(path,"rt",encoding="utf-8") as src:
             for i,line in enumerate(src):
                 if line.strip():
                     row=json.loads(line)
@@ -178,7 +263,10 @@ def source_rows(path):
 
 ADAPTERS={"typed_decisions_v1":typed_decisions,"n4ze3m_gold_v1":n4ze3m_gold,
           "helmo_gold_v1":helmo_gold,"procedural_gold_v1":procedural_gold,
-          "hellaswag_gold_v1":hellaswag_gold}
+          "hellaswag_gold_v1":hellaswag_gold,
+          "banking77_test_gold_v1":banking77_test_gold,
+          "clinc150_plus_test_gold_v1":clinc150_plus_test_gold,
+          "better_jev_heldout_gold_v1":better_jev_heldout_gold}
 
 
 def choose(row,selection):

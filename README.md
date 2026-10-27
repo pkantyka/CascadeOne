@@ -49,3 +49,9 @@ To compare **Pico-only, Ultra-only and frozen-confidence Pico -> Ultra**
 on multiple pinned original-source datasets, see
 [the wide benchmark protocol](benchmarks/CONFIDENCE-WIDE.md).
 No G1 model or retraining is involved.
+
+## External confidence benchmark
+
+Download/test BANKING77, CLINC150, and pinned better-jev-bench held-out
+sources using [external source protocol](benchmarks/EXTERNAL-SOURCES.md).
+No G1 or retraining is required.

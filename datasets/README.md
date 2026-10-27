@@ -38,3 +38,11 @@ used by the Pico confidence suite, including two procedural shards.
 `python datasets/download_wide.py --verify` checks cached source SHA-256
 without network. Conversion and Gold exclusions are defined by the
 benchmark setups, never by this registry.
+
+## External benchmark sources
+
+`python datasets/download_external.py` downloads the exact pinned raw
+BANKING77, CLINC150, CFPB, CUAD and Civil Comments sources (including
+BANKING77/CLINC150 variants from better-jev-bench). Run with `--verify`
+to check cached SHA-256 without network, or `--list` to inspect IDs.
+See [external benchmark protocol](../benchmarks/EXTERNAL-SOURCES.md).

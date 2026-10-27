@@ -70,7 +70,9 @@ def paired_ci(path,draws=600):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--output-root",type=Path,default=ROOT/"output/confidence-wide")
+    p.add_argument("--output-root",type=Path)
+    p.add_argument("--suite",choices=("wide","external"),default="wide")
+    p.add_argument("--setup-id",help="run one setup from the selected suite")
     p.add_argument("--repeats",type=int,default=2)
     p.add_argument("--warmup",type=int,default=3)
     p.add_argument("--phase",choices=("colocated","strong-alone"),default="colocated")
@@ -78,10 +80,18 @@ def main():
     a=p.parse_args()
     if a.repeats<1 or a.warmup<0:
         p.error("invalid repeats/warmup")
+    if a.output_root is None:
+        a.output_root=ROOT/("output/confidence-"+a.suite)
     if not a.dry_run and a.output_root.exists():
         raise FileExistsError("suite output exists, refusing overwrite")
+    setups=(SETUPS if a.suite=="wide" else
+            sorted((ROOT/"benchmarks/setups").glob("pico-ultra-external-*.json")))
+    if a.setup_id:
+        setups=[p for p in setups if p.stem==a.setup_id]
+    if not setups:
+        raise ValueError("no matching benchmark setup")
     report=[]
-    for spath in SETUPS:
+    for spath in setups:
         setup=json.loads(spath.read_text(encoding="utf-8"))
         dataset,identity=resolve(setup["dataset"]["id"])
         selection=setup.get("selection",{"type":"all"})
@@ -107,9 +117,11 @@ def main():
     if not a.dry_run:
         a.output_root.mkdir(parents=True,exist_ok=True)
         (a.output_root/"suite.json").write_text(json.dumps({
-            "kind":"cascadeone-confidence-wide-v1","status":"complete",
+            "kind":"cascadeone-confidence-"+a.suite+"-v1","status":"complete",
             "selection":"frozen per-setup; no calibration on test",
-            "source_warning":"train sources; model pretraining contamination not ruled out",
+            "source_warning":("train sources; model pretraining contamination not ruled out"
+                              if a.suite=="wide" else
+                              "mixed public test/heldout sources; model training overlap unknown; BJB banking77 and clinc150 overlap originals"),
             "runs":report},ensure_ascii=False,indent=2)+"\n")
     print(json.dumps({"setups":len(report),"dry_run":a.dry_run},indent=2))
 

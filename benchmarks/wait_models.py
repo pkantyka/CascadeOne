@@ -17,9 +17,7 @@ def main():
         try:
             for kind in ("fast","strong"):
                 endpoint=config[kind]["url"].rstrip("/")
-                health=request_json(endpoint+"/health",timeout=15)
-                if health.get("status")!="ok":
-                    raise RuntimeError("model unhealthy: "+kind)
+                request_json(endpoint+"/health",timeout=15)
                 check_identity(endpoint,config[kind])
             print("PICO_AND_ULTRA_READY",flush=True)
             return

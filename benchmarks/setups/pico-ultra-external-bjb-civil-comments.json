@@ -1,0 +1,12 @@
+{
+  "schema": "cascadeone-benchmark-setup-v1",
+  "id": "pico-ultra-external-bjb-civil-comments",
+  "cascade": "cascades/basal-pico-ultra/benchmark.json",
+  "dataset": {
+    "id": "bjb-civil-comments-heldout-v1"
+  },
+  "adapter": "better_jev_heldout_gold_v1",
+  "selection": {
+    "type": "all"
+  }
+}
