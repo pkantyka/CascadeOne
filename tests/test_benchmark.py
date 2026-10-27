@@ -63,6 +63,9 @@ class SmokeTests(unittest.TestCase):
             self.assertTrue(all("routing" in json.loads(line) for line in (self.root/"r1"/"measurements.jsonl").read_text().splitlines()))
             assert result["arms"]["cascade"]["question_expected_accuracy"]==1
             assert result["arms"]["strong_only"]["n"]==6
+            assert result["arms"]["fast_only"]["n"]==6
+            self.assertEqual(result["arms"]["fast_only"]["escalation_rate"],0)
+            self.assertEqual(result["arms"]["fast_only"]["question_expected_accuracy"],1)
             assert set(result["by_domain"])=={"medical","legal"}
             assert result["by_domain"]["medical"]["cascade"]["n"]==2
             assert validate_result.validate(self.root/"r1")["valid"]

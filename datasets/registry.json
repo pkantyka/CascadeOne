@@ -23,6 +23,58 @@
         "file": "data/train.jsonl",
         "sha256": "1f3e0f751b6fdd1115cf6af4ea3ebc13545a1148614eda4f9f56ae8492c80675"
       }
+    },
+    {
+      "id": "helmo-synthetic-v1",
+      "mode": "downloadable",
+      "domain": "general",
+      "license_status": "upstream_claim_mit;not_independently_audited",
+      "source": {
+        "provider": "huggingface",
+        "repo": "helmo/synthetic-typed-decisions",
+        "revision": "1827dc0d7f5a77f172107bfa25a49d2eda50b32e",
+        "file": "synthetic_train.jsonl",
+        "sha256": "384bcf7c25b65aa8d6c326e8daa2a8053c3dc09f10a90239c73ae4a92fc98793"
+      }
+    },
+    {
+      "id": "procedural-typed-0-v1",
+      "mode": "downloadable",
+      "domain": "multidomain",
+      "license_status": "upstream_claim_apache_2;not_independently_audited",
+      "source": {
+        "provider": "huggingface",
+        "repo": "tasksource/procedural-typed-decisions",
+        "revision": "609513a3faddf729123266efe9861456fe748f95",
+        "file": "all/train-00000-of-00002.parquet",
+        "sha256": "9d3d6cbd7c7ea998dbc831febd93bdf6df3586d0632db15adaf05d3c3cfbd355"
+      }
+    },
+    {
+      "id": "procedural-typed-1-v1",
+      "mode": "downloadable",
+      "domain": "multidomain",
+      "license_status": "upstream_claim_apache_2;not_independently_audited",
+      "source": {
+        "provider": "huggingface",
+        "repo": "tasksource/procedural-typed-decisions",
+        "revision": "609513a3faddf729123266efe9861456fe748f95",
+        "file": "all/train-00001-of-00002.parquet",
+        "sha256": "82e8aba1753eda347248cba07ff8d942ab0bdcd63f06961df54c2bf41afa0c6a"
+      }
+    },
+    {
+      "id": "hellaswag-train-v1",
+      "mode": "downloadable",
+      "domain": "commonsense",
+      "license_status": "upstream_claim_mit_original;not_independently_audited",
+      "source": {
+        "provider": "huggingface",
+        "repo": "Rowan/hellaswag",
+        "revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+        "file": "data/train-00000-of-00001.parquet",
+        "sha256": "cacb12587faa63d7f723a72d61d12bfa94b140446f5a6a0a2e1c6906ab88bf02"
+      }
     }
   ]
 }

@@ -105,8 +105,8 @@ def score_gold(req,pred,gold):
             "hard_request_exact":all(hard) if len(hard)==len(scores) else None,
             "questions":len(scores)}
 
-def load_dataset(path,adapter="typed_decisions_v1",selection=None):
-    raw_rows,digest=normalize(path,adapter,selection)
+def load_dataset(path,adapter="typed_decisions_v1",selection=None,with_audit=False):
+    raw_rows,digest,audit=normalize(path,adapter,selection,with_audit=True)
     rows=[]
     seen=set()
     for item in raw_rows:
@@ -122,7 +122,7 @@ def load_dataset(path,adapter="typed_decisions_v1",selection=None):
             raise ValueError("Gold coverage mismatch")
         rows.append(item)
     if not rows: raise ValueError("dataset empty")
-    return rows,digest
+    return (rows,digest,audit) if with_audit else (rows,digest)
 
 def timed(url,req,timeout,fast=False):
     start=time.perf_counter_ns()
@@ -171,7 +171,7 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
     cascade=Cascade(config)
     if repeats<1 or warmup<0: raise ValueError("invalid repeats/warmup")
     selection=selection or {"type":"all"}
-    rows,normalized_sha=load_dataset(dataset_path,adapter,selection)
+    rows,normalized_sha,normalization_audit=load_dataset(dataset_path,adapter,selection,with_audit=True)
     dest=Path(output)
     if dest.exists(): raise FileExistsError("run output already exists")
     fast_url=config["fast"]["url"]
@@ -201,6 +201,7 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
             "dataset_identity":dataset_identity or {"mode":"local_unregistered","id":None,"split":None},
             "benchmark_setup":setup_identity or {"adapter":adapter,"selection":selection},
             "normalized_requests_sha256":normalized_sha,
+            "normalization_audit":normalization_audit,
             "community_source_sha256":sha(Path(__file__).resolve().parents[1]/"distribution-manifest.json") if (Path(__file__).resolve().parents[1]/"distribution-manifest.json").is_file() else None,
             "measurement_note":"client wall-clock HTTP; no cached answers; CPU/GPU telemetry host-global",
             "gold_coverage":"all" if all(x.get("gold") is not None for x in rows) else "partial_or_none",
@@ -210,7 +211,7 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
         }
         (dest/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
         rng=random.Random(seed)
-        arms=["strong_only"] if phase=="strong-alone" else ["strong_only","cascade"]
+        arms=["strong_only"] if phase=="strong-alone" else ["strong_only","fast_only","cascade"]
         with Telemetry(dest/"telemetry.jsonl") as monitor:
             for url,fast in ([(strong_url,False)] if phase=="strong-alone" else [(strong_url,False),(fast_url,True)]):
                 for i in range(warmup):
@@ -232,6 +233,15 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
                                 fast_ms=outcome.fast_ms
                                 strong_ms=outcome.strong_ms
                                 escalated=outcome.escalated
+                            elif arm=="fast_only":
+                                selected,fast_ms=timed(fast_url,req,timeout,True)
+                                if selected.get("fast_eligible") is False:
+                                    raise ValueError("fast_only request ineligible: "+case["id"])
+                                strong_ms=0.0
+                                escalated=False
+                                route={"policy":"fast_only","escalated":False,
+                                       "reason":"baseline","signals":{},
+                                       "fast_executed":True,"strong_executed":False}
                             else:
                                 selected,strong_ms=timed(strong_url,req,timeout,False)
                                 fast_ms=0.0

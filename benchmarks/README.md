@@ -28,3 +28,9 @@ In colocated mode, both servers are resident and requests are measured for stron
     python tools/compare_runs.py --standalone output/solo --colocated output/paired
 
 The smoke data are not a real performance benchmark. No concurrency/energy or per-process VRAM accuracy is claimed in this preview.
+
+## Wide-source confidence baseline
+
+See [CONFIDENCE-WIDE.md](CONFIDENCE-WIDE.md) for frozen multi-source
+Pico -> confidence -> Ultra runs (three live arms including Pico-only),
+raw downloads, exclusions and paired uncertainty estimates.

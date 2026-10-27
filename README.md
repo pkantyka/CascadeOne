@@ -42,3 +42,10 @@ The Development script `publishing/build_community.py` was used only to **bootst
 For details, see `benchmarks/README.md`, `datasets/README.md`, `CONTRIBUTING.md` and `docs/`. Historic measurements are contextual evidence in `docs/development-evidence/`, not new reference runs.
 
 **Release gates:** GPU/Compose installation and live measurements, model/source licensing and third-party notices are not yet approved; see `docs/RELEASE-READINESS.md`. No website, model weights or redistributable third-party raw datasets are included.
+
+## Wide-source confidence benchmark
+
+To compare **Pico-only, Ultra-only and frozen-confidence Pico -> Ultra**
+on multiple pinned original-source datasets, see
+[the wide benchmark protocol](benchmarks/CONFIDENCE-WIDE.md).
+No G1 model or retraining is involved.

@@ -31,7 +31,7 @@ def validate(root):
         raise ValueError("invalid run status/counts")
     phase=manifest.get("phase")
     arms=set(summary["arms"])
-    if arms!=({"strong_only"} if phase=="strong-alone" else {"strong_only","cascade"}):
+    if arms!=({"strong_only"} if phase=="strong-alone" else {"strong_only","fast_only","cascade"}):
         raise ValueError("missing benchmark arms")
     trials=[json.loads(x) for x in (root/"measurements.jsonl").read_text().splitlines()]
     expected=manifest["n_requests"]*manifest["repeats"]*len(arms)
@@ -52,7 +52,7 @@ def validate(root):
         route=trial.get("routing")
         if not isinstance(route,dict) or route.get("escalated") is not trial.get("escalated"):
             raise ValueError("routing decision mismatch")
-        expected_policy="strong_only" if trial["arm"]=="strong_only" else manifest["routing"]["type"]
+        expected_policy=trial["arm"] if trial["arm"] in ("strong_only","fast_only") else manifest["routing"]["type"]
         if route.get("policy")!=expected_policy:
             raise ValueError("routing policy mismatch")
         if not isinstance(route.get("signals"),dict):

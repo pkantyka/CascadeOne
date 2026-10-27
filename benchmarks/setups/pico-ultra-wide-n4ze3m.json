@@ -1,0 +1,15 @@
+{
+  "schema": "cascadeone-benchmark-setup-v1",
+  "id": "pico-ultra-wide-n4ze3m",
+  "cascade": "cascades/basal-pico-ultra/benchmark.json",
+  "dataset": {
+    "id": "n4ze3m-typed-decisions-v1"
+  },
+  "adapter": "n4ze3m_gold_v1",
+  "selection": {
+    "type": "hash_range",
+    "start": 0.0,
+    "end": 0.15,
+    "seed": 20261027
+  }
+}
