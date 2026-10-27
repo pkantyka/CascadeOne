@@ -1,82 +1,73 @@
-# External System One benchmark sources (confidence H1, no G1)
+# External confidence benchmark: complete original sources
 
-This suite tests the **unchanged** Pico -> minimum-confidence -> Ultra
-cascade with frozen threshold 0.6563522219657898, against Pico-only
-and Ultra-only. Unlike the earlier four-family train suite, these are
-original public **test** files or the pinned better-jev-bench **heldout**
-collection. Do not tune thresholds on these results.
+Raw source collections and benchmarks are independent. Acquiring a source
+never filters, samples, re-labels or removes duplicate rows. Benchmarks
+may select original splits or transform raw requests to System One.
 
-## Frozen raw sources
+## Complete source access
 
-Each downloadable source has an immutable 40-character revision and the
-SHA-256 of the **exact original bytes** in `datasets/registry.json`.
-Files are cached under `datasets/cache/raw/<dataset_id>/`, never committed.
+All source files are pinned to immutable revisions and SHA-256 in
+datasets/registry.json, and grouped in immutable manifests.
 
-| Dataset ID | Original file | Source split / options |
-| --- | --- | --- |
-| banking77-test-v1 | PolyAI/banking77 | original test, 3080 rows, 77 intents |
-| clinc150-plus-test-v1 | clinc/clinc_oos | plus/test, 5500 rows, 151 options including OOS |
-| bjb-banking77-heldout-v1 | better-jev-bench | heldout curated mixture, 2000 rows |
-| bjb-clinc150-heldout-v1 | better-jev-bench | heldout curated mixture, 2000 rows |
-| bjb-cfpb-heldout-v1 | better-jev-bench | CFPB product routing, 2000 rows |
-| bjb-cuad-heldout-v1 | better-jev-bench | CUAD contract classification, 3174 rows |
-| bjb-civil-comments-heldout-v1 | better-jev-bench | Civil Comments toxicity decisions, 4000 rows |
+| Source directory | Files | Scope |
+| --- | ---: | --- |
+| datasets/sources/banking77/ | 2 | original train + test |
+| datasets/sources/clinc150/ | 9 | plus/small/imbalanced x train/validation/test |
+| datasets/sources/better-jev-bench/ | 11 | every published bench/heldout/*.jsonl.gz |
 
-The two original-source datasets use the ClassLabel names embedded in their
-Parquet metadata and full original taxonomies. The BJB adapter translates
-all original options and the source Gold from its JSONL.GZ requests.
-Adapters live in `benchmarks/adapters.py`: the dataset catalog only
-acquires/verifies exact raw files. PyArrow 21.0.0 is needed **only** to
-normalize Parquet benchmark sources.
+Run from Community root with Python 3.12:
 
-**Important nonindependence:** better-jev-bench includes original source
-train/validation/test examples and **overlaps** the standalone BANKING77
-and CLINC150 test files. In a local check there were 468 normalized
-BANKING77 matching texts and 479 CLINC150 test matching texts.
-Each setup must be reported **separately**. Never pool these seven
-runs as independent requests, and do not sum the source-family metrics
-as seven independent benchmark families.
+    python datasets/sources/banking77/download.py
+    python datasets/sources/clinc150/download.py
+    python datasets/sources/better-jev-bench/download.py
 
-Training exposure of the frozen Pico/Ultra checkpoints to these public
-datasets is unknown. Dataset licensing and public redistributability
-are separate from download permission; raw files stay in cache.
+Alternatively, python datasets/download_external.py downloads all three
+complete sources. The --verify option only checks existing original
+bytes, and --list describes all source members. No raw source data is
+committed: files download on demand into gitignored datasets/cache/raw/.
 
-## Local setup and verification
-
-Run from the Community repository root (Python 3.12):
-
-    python datasets/download_external.py --list
-    python datasets/download_external.py
-    python datasets/download_external.py --verify
-    python -m unittest discover -s tests -v
-
-A single source can be acquired without other downloads:
+To fetch a single original file rather than a complete source:
 
     python datasets/download_external.py --dataset-id banking77-test-v1
 
-CPU dataset preflight (does not invoke any inference):
+The dataset acquisition process never deduplicates or converts records.
 
-    python benchmarks/run_confidence_wide.py --suite external --dry-run
+**Multimodal limit:** Atari Head, OS-Atlas and ScreenSpot v2 held-out
+JSONL.GZ datasets refer to externally stored images by URI and SHA-256.
+Their complete original source records are downloadable, but the actual
+image binaries are not included in this source snapshot. Their complete
+multimodal use requires additional image retrieval and validation.
 
-One setup (both Pico and Ultra servers must be running):
+## Separate benchmark directories
 
-    python benchmarks/run_confidence_wide.py --suite external --setup-id pico-ultra-external-banking77 --output-root output/external-banking77-20261027
+| Benchmark directory | Default evaluated inputs |
+| --- | --- |
+| benchmarks/banking77/ | original BANKING77 test (3080 requests, 77 choices) |
+| benchmarks/clinc150/ | original CLINC150 plus/test (5500 requests, 151 choices including OOS) |
+| benchmarks/better-jev-bench/ | eight individually selected text-only BJB held-out tasks |
 
-To run on ARM64 NVIDIA DGX Spark with Docker Compose, from Community root:
+Each benchmark has its own script and setup; BJB has one setup per text
+task. All eleven BJB held-out source files remain available unchanged,
+including three multimodal tasks not executed by the text-only runner.
+
+    sh benchmarks/banking77/run.sh --dry-run
+    sh benchmarks/clinc150/run.sh --dry-run
+    python benchmarks/better-jev-bench/run.py --dry-run
+
+To run GPU inference (on supported architecture):
 
     sh benchmarks/run_confidence_external.sh
 
-This builds the existing model containers, downloads/verifies sources,
-starts the models, runs preflight, and executes all external setups.
-Results are under `output/confidence-external-20261027/`, with one
-manifest/summary/paired bootstrap CI per setup and a suite index.
+It installs required container images, downloads sources, checks the
+normalization, starts Pico and Ultra and evaluates all text benchmarks.
+The shared H1 runner compares Pico-only, Ultra-only and frozen
+confidence gating (threshold 0.6563522219657898). No G1 or training.
 
-**Model limitation:** The original choice width is never silently
-truncated. BANKING77 has 77 options and CLINC150 has 151. If the
-pinned Basal service cannot handle a request, the run must fail visibly
-rather than silently turning the benchmark into a smaller task.
-High-width model-serving support is **not** GPU-validated here.
+BJB BANKING77 and CLINC150 overlap source test sets and include train
+examples. Preserve all original data. If needed, a particular benchmark
+may deduplicate its evaluation subset without touching source files.
 
-Do not interpret a positive speedup alone as a win. Compare quality
-loss/gain to Ultra-only and p95, and keep uncertainty and per-domain
-differences visible.
+Actual GPU service operation with 77/151 option questions has not yet
+been validated. The server must reject unsupported choice widths, not
+silently truncate them. Training-data leakage with original model
+pretraining is unknown.

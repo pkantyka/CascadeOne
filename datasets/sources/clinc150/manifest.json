@@ -1,0 +1,57 @@
+{
+  "schema": "cascadeone-raw-source-group-v1",
+  "name": "clinc150",
+  "upstream": {
+    "provider": "huggingface",
+    "repository": "clinc/clinc_oos",
+    "revision": "155b9c710419136e17307b80d0a13e68cd46b4ec"
+  },
+  "files": [
+    {
+      "id": "clinc150-plus-train-v1",
+      "path": "plus/train-00000-of-00001.parquet",
+      "sha256": "30188119cf9f86fc9db27e1c22442d091cb5cb0913c9496f945fe11e7a02a28f"
+    },
+    {
+      "id": "clinc150-plus-validation-v1",
+      "path": "plus/validation-00000-of-00001.parquet",
+      "sha256": "fbd545b46c611c4a7ba4b48cae6c7f09bb5b59f33ff56206ad1cd366c85cdfaa"
+    },
+    {
+      "id": "clinc150-plus-test-v1",
+      "path": "plus/test-00000-of-00001.parquet",
+      "sha256": "3e60e45b25bf86543aa5df8ba4fcc674114164e6184f0197690648c2908d0102"
+    },
+    {
+      "id": "clinc150-small-train-v1",
+      "path": "small/train-00000-of-00001.parquet",
+      "sha256": "87e11e91c7dde5ba4b4e99db6248bf39e4f14bf9fe7705ce70bcfae38d505bc1"
+    },
+    {
+      "id": "clinc150-small-validation-v1",
+      "path": "small/validation-00000-of-00001.parquet",
+      "sha256": "fbd545b46c611c4a7ba4b48cae6c7f09bb5b59f33ff56206ad1cd366c85cdfaa"
+    },
+    {
+      "id": "clinc150-small-test-v1",
+      "path": "small/test-00000-of-00001.parquet",
+      "sha256": "3e60e45b25bf86543aa5df8ba4fcc674114164e6184f0197690648c2908d0102"
+    },
+    {
+      "id": "clinc150-imbalanced-train-v1",
+      "path": "imbalanced/train-00000-of-00001.parquet",
+      "sha256": "c9a2315625025628a812c0d8788a822518eacb25898edc2febb08e3b800f1251"
+    },
+    {
+      "id": "clinc150-imbalanced-validation-v1",
+      "path": "imbalanced/validation-00000-of-00001.parquet",
+      "sha256": "fbd545b46c611c4a7ba4b48cae6c7f09bb5b59f33ff56206ad1cd366c85cdfaa"
+    },
+    {
+      "id": "clinc150-imbalanced-test-v1",
+      "path": "imbalanced/test-00000-of-00001.parquet",
+      "sha256": "3e60e45b25bf86543aa5df8ba4fcc674114164e6184f0197690648c2908d0102"
+    }
+  ],
+  "preservation": "complete_original_source_splits_no_filtering_no_deduplication"
+}

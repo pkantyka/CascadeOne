@@ -13,16 +13,20 @@ import download_external  # noqa: E402
 
 
 class ExternalTests(unittest.TestCase):
-    def test_seven_frozen_sources_and_setups(self):
+    def test_complete_raw_sources_and_independent_setups(self):
         ids=download_external.identities()
-        self.assertEqual(len(ids),7)
+        self.assertEqual(len(ids),22)
         for source_id in ids:
             entry=catalog.get(source_id)
             self.assertEqual(entry["mode"],"downloadable")
             self.assertEqual(len(entry["source"]["revision"]),40)
             self.assertEqual(len(entry["source"]["sha256"]),64)
             self.assertTrue(catalog.source_url(entry["source"]).startswith("https://"))
-        for setup_path in (ROOT/"benchmarks/setups").glob("pico-ultra-external-*.json"):
+        setups=([ROOT/"benchmarks/banking77/setup.json",
+                 ROOT/"benchmarks/clinc150/setup.json"]+
+                sorted((ROOT/"benchmarks/better-jev-bench/setups").glob("*.json")))
+        self.assertEqual(len(setups),10)
+        for setup_path in setups:
             setup=json.loads(setup_path.read_text())
             self.assertIn(setup["dataset"]["id"],ids)
             self.assertIn(setup["adapter"],adapters.ADAPTERS)

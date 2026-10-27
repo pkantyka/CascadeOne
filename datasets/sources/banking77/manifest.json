@@ -1,0 +1,22 @@
+{
+  "schema": "cascadeone-raw-source-group-v1",
+  "name": "banking77",
+  "upstream": {
+    "provider": "huggingface",
+    "repository": "PolyAI/banking77",
+    "revision": "a00bafa8d1db84baced2c9032e3f227f9c486cb2"
+  },
+  "files": [
+    {
+      "id": "banking77-train-v1",
+      "path": "data/train-00000-of-00001.parquet",
+      "sha256": "4526edfa60622ff9b39e238657ab6d712f6aba1ba91c9d7ed7897b0715ee0390"
+    },
+    {
+      "id": "banking77-test-v1",
+      "path": "data/test-00000-of-00001.parquet",
+      "sha256": "535fc96c4c2b4c2dbdeb0d4b31f24a4859620cf663d6c19c1bd1f97450c410be"
+    }
+  ],
+  "preservation": "complete_original_source_splits_no_filtering_no_deduplication"
+}

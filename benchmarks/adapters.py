@@ -194,6 +194,8 @@ def better_jev_heldout_gold(row):
     state=row.get("request",{}).get("state")
     if not isinstance(key,str) or not key or not isinstance(source,str):
         raise ValueError("invalid better-jev item identity")
+    if row.get("request",{}).get("images"):
+        raise SkipGold("multimodal_images_not_available_to_text_backend")
     if not isinstance(state,str) or not isinstance(questions,dict) or not questions:
         raise ValueError("invalid better-jev request")
     if not isinstance(expected,dict) or set(expected)!=set(questions):

@@ -1,0 +1,67 @@
+{
+  "schema": "cascadeone-raw-source-group-v1",
+  "name": "better-jev-bench",
+  "upstream": {
+    "provider": "github_raw",
+    "repository": "asp616848/better-jev-bench",
+    "revision": "2478dda5bf2b2c03c09bc54cf068872fd3be3334"
+  },
+  "files": [
+    {
+      "id": "bjb-atari-head-heldout-v1",
+      "path": "bench/heldout/atari_head.jsonl.gz",
+      "sha256": "e5aa8eb421658c222fa4dab38533a68a9934c6b4875fefd8836e2a3342e0f1db"
+    },
+    {
+      "id": "bjb-banking77-heldout-v1",
+      "path": "bench/heldout/banking77.jsonl.gz",
+      "sha256": "40a9db1624df4c8edf3710f69bd56b4322d84f586cfbc595e65763457cd9d6f9"
+    },
+    {
+      "id": "bjb-cfpb-heldout-v1",
+      "path": "bench/heldout/cfpb_complaints.jsonl.gz",
+      "sha256": "ba7c745a8ebd74450efe22414c7365a7379a63c7ea8a24b2abf153d6485b76c8"
+    },
+    {
+      "id": "bjb-civil-comments-heldout-v1",
+      "path": "bench/heldout/civil_comments.jsonl.gz",
+      "sha256": "bb53e207d76ae5c2203db4cfe88436fee4d15b585c64b6ac25da95fa4bcf50dd"
+    },
+    {
+      "id": "bjb-clinc150-heldout-v1",
+      "path": "bench/heldout/clinc150.jsonl.gz",
+      "sha256": "3cd38f92e62dd242a99c40fd8b0b77d69dd93681adae9774dbc66d1b8c70fbdc"
+    },
+    {
+      "id": "bjb-cuad-heldout-v1",
+      "path": "bench/heldout/cuad.jsonl.gz",
+      "sha256": "29af109abacc537e2dbdb86bebd0b6ac079cb7e07ea8041536c6a3c5f8a8e3ff"
+    },
+    {
+      "id": "bjb-go-emotions-heldout-v1",
+      "path": "bench/heldout/go_emotions.jsonl.gz",
+      "sha256": "ff4a1eb4f7da896f062392582366938533f3cc40a0079457599a4a5ad7c6232b"
+    },
+    {
+      "id": "bjb-ledgar-heldout-v1",
+      "path": "bench/heldout/ledgar.jsonl.gz",
+      "sha256": "53de9965645a8f62387911d13bd4e1f5e8152a8374650df21a580f68a3a65208"
+    },
+    {
+      "id": "bjb-massive-heldout-v1",
+      "path": "bench/heldout/massive.jsonl.gz",
+      "sha256": "8063e6403727c0cf5e0d20d4de6de9485fa3c245e8d2ac159b67447961179070"
+    },
+    {
+      "id": "bjb-os-atlas-heldout-v1",
+      "path": "bench/heldout/os_atlas.jsonl.gz",
+      "sha256": "01b711a2307bd92a67824c60021bd8119b296c31521604f2be94c641640b535c"
+    },
+    {
+      "id": "bjb-screenspot-v2-heldout-v1",
+      "path": "bench/heldout/screenspot_v2.jsonl.gz",
+      "sha256": "b15f477f9f42701c78ca50a98b5c8bfde3db2c1bbc4a2f70cb40a5e5789230d3"
+    }
+  ],
+  "preservation": "complete_original_source_splits_no_filtering_no_deduplication"
+}

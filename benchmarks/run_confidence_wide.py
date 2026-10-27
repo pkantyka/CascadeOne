@@ -84,10 +84,12 @@ def main():
         a.output_root=ROOT/("output/confidence-"+a.suite)
     if not a.dry_run and a.output_root.exists():
         raise FileExistsError("suite output exists, refusing overwrite")
-    setups=(SETUPS if a.suite=="wide" else
-            sorted((ROOT/"benchmarks/setups").glob("pico-ultra-external-*.json")))
+    external=[ROOT/"benchmarks/banking77/setup.json",ROOT/"benchmarks/clinc150/setup.json"]
+    external+=sorted((ROOT/"benchmarks/better-jev-bench/setups").glob("*.json"))
+    setups=SETUPS if a.suite=="wide" else external
     if a.setup_id:
-        setups=[p for p in setups if p.stem==a.setup_id]
+        setups=[path for path in setups
+                if json.loads(path.read_text(encoding="utf-8"))["id"]==a.setup_id]
     if not setups:
         raise ValueError("no matching benchmark setup")
     report=[]

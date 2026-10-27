@@ -39,10 +39,17 @@ used by the Pico confidence suite, including two procedural shards.
 without network. Conversion and Gold exclusions are defined by the
 benchmark setups, never by this registry.
 
-## External benchmark sources
 
-`python datasets/download_external.py` downloads the exact pinned raw
-BANKING77, CLINC150, CFPB, CUAD and Civil Comments sources (including
-BANKING77/CLINC150 variants from better-jev-bench). Run with `--verify`
-to check cached SHA-256 without network, or `--list` to inspect IDs.
-See [external benchmark protocol](../benchmarks/EXTERNAL-SOURCES.md).
+## Complete source acquisition
+
+Sources BANKING77, CLINC150, and better-jev-bench each have an individual
+directory under datasets/sources/ with a download.py and manifest.json.
+The source script acquires every original pinned split/file unchanged.
+
+    python datasets/download_external.py --list
+    python datasets/download_external.py
+    python datasets/download_external.py --verify
+
+Raw files are downloaded on demand to gitignored datasets/cache/raw/.
+Any conversion or deduplication belongs to benchmark setups, not to
+source acquisition. See benchmarks/EXTERNAL-SOURCES.md.

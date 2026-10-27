@@ -22,7 +22,7 @@ A custom local typed-decision JSONL can still be evaluated directly:
 
 Routing is part of the **cascade runtime** (cascades/runtime.py), using the configured policy (cascades/policies.py). The benchmark runner has no confidence threshold logic. Built-in policies include confidence_threshold, always_fast, always_strong and max_questions_pre_router; a trusted module:factory plugin may implement other policies. Any policy must decide before/after fast inference and emit a route decision, which is logged for every request.
 
-In colocated mode, both servers are resident and requests are measured for strong_only and cascade. In strong-alone mode, only strong is resident. Repeats and arm order are randomized and the client is sequential. The runner measures HTTP wall time and request-time routing overhead, not offline dataset conversion or dataset download. Reports contain mean/p50/p95/p99, Gold where present, escalation, routing metadata, source and normalized input SHA-256, and host resource telemetry if available.
+In colocated mode, both servers are resident and requests are measured for strong_only, fast_only and cascade. In strong-alone mode, only strong is resident. Repeats and arm order are randomized and the client is sequential. The runner measures HTTP wall time and request-time routing overhead, not offline dataset conversion or dataset download. Reports contain mean/p50/p95/p99, Gold where present, escalation, routing metadata, source and normalized input SHA-256, and host resource telemetry if available.
 
     python tools/validate_result.py output/laya-smoke
     python tools/compare_runs.py --standalone output/solo --colocated output/paired
