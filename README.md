@@ -1,16 +1,26 @@
 # CascadeOne
 
-**CascadeOne is an experimental framework for conditional inference with decision models.** It combines a fast, lightweight model with a stronger fallback model, using a configurable routing policy to decide when the extra computation is justified.
+**CascadeOne** is a system of System One decision models arranged in a cascade, designed to optimize resource utilization and reduce response latency compared to a standalone large model, while minimizing the loss of decision quality (the performance–quality trade-off).
 
-The goal is to measure when a cascade can reduce **end-to-end inference time and compute cost** while retaining an acceptable level of decision quality. A smaller model alone may be cheaper but less accurate; a stronger model alone may be more reliable but slower. The cascade attempts to balance those outcomes on a given workload and hardware platform, rather than claiming that one strategy always wins.
+This is achieved through an appropriate inference engine or architectural modifications, such as introducing a router or an additional decision head.
+
+The core concept is to reduce the average number of calls to the large System One model during system inference. Depending on the configured routing policy, a request may be handled by a smaller model or escalated to a larger one. Escalation can occur before or after the smaller model runs.
+
+The term *cascade* refers to conditional escalation: requests that the routing policy considers unsuitable for the fast path are directed to the larger model, either before the smaller model runs or after its response is evaluated.
+
+## Repository
+
+This repository provides an experimental framework for conditional inference with decision models. It combines a fast, lightweight model with a stronger fallback model, using a configurable routing policy to decide when the extra computation is justified.
+
+The goal is to evaluate whether a cascade can reduce **end-to-end response latency and resource utilization** while retaining an acceptable level of decision quality. CascadeOne explores the conditions under which a cascade actually outperforms a standalone strong model on a given workload and hardware platform. A smaller model alone may need fewer resources but be less accurate; a stronger model alone may produce higher-quality decisions but be slower. Current benchmarks measure latency, Gold-based decision quality when available, escalation rates, and available host-level resource telemetry; they do not directly establish monetary cost or comprehensive compute cost.
 
 ## Architecture exploration
 
-CascadeOne is also an **experimental platform for architectural changes to decision models used in cascades**. It investigates alternative model pairings, model-internal modifications, and configurations with additional components to identify tradeoffs between decision quality, latency, and compute cost.
+CascadeOne investigates alternative model pairings, model-internal modifications, and configurations with additional components to identify tradeoffs between decision quality, latency, and resource utilization.
 
 Experiments can explore distilled or specialized fast models, alternative decision heads and adapters, multiple fast experts, pre-routers, learned escalation or fidelity predictors, and latent-representation fusion. Every additional component has costs in latency, memory, or communication, so the complete execution path must be benchmarked against the same single-model baselines.
 
-These are research directions, **not claims that every component is implemented**. The following sections distinguish the available reference cascades and routing policies from future experiments.
+Work is in progress. Some concepts are under implementation and research. Not all components have been implemented or validated.
 
 ## How it works
 
@@ -20,20 +30,16 @@ These are research directions, **not claims that every component is implemented*
 4. A **routing policy** accepts that response or escalates the *whole request* to the strong model.
 5. The system returns the selected response and records the execution route.
 
-~~~text
-Request
-   |
-   v
-Pre-router? ------ escalate ------> Strong model ------> Response
-   |
-   | continue
-   v
-Fast model ------ accept --------------------------------> Response
-   |
-   | escalate
-   v
-Strong model ---------------------------------------------> Response
-~~~
+```mermaid
+flowchart TD
+    request["Request"] --> pre{"Pre-router (optional)"}
+    pre -->|"Escalate"| strong["Strong model"]
+    pre -->|"Continue"| fast["Fast model"]
+    fast --> post{"Routing policy"}
+    post -->|"Accept"| response["Response"]
+    post -->|"Escalate"| strong
+    strong --> response
+```
 
 **Confidence is a routing signal, not a guarantee of correctness.** The built-in confidence policy accepts a configurable threshold and minimum, mean or maximum aggregation across questions. Other built-in policies include an input-based question-count pre-router, always-fast and always-strong. Trusted Python policy plug-ins can implement additional strategies. Routing and inference execution remain separate from benchmark measurement.
 
