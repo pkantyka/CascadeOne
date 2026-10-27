@@ -19,12 +19,20 @@ import download_wide  # noqa: E402
 
 class SemanticBenchmarkTests(unittest.TestCase):
     def test_all_benchmark_names_and_strategies_match_configs(self):
-        expected={"external":10,"wide":5,"smoke":4}
+        expected={"external":10,"wide":5,"source":1,"smoke":3}
         directories=list((ROOT/"benchmarks").glob("*/benchmark.json"))
         self.assertEqual(len(directories),19)
         self.assertEqual(len({p.parent.name for p in directories}),19)
         for group,count in expected.items():
             self.assertEqual(len(suite.benchmark_setups(group)),count)
+        for path in suite.benchmark_setups("smoke"):
+            setup=json.loads(path.read_text())
+            self.assertEqual(setup["dataset"]["id"],"smoke-general-v1")
+        source=suite.benchmark_setups("source")
+        self.assertEqual(len(source),1)
+        source_config=json.loads(source[0].read_text())
+        self.assertEqual(source_config["dataset"]["id"],"n4ze3m-typed-decisions-v1")
+        self.assertEqual(source_config["selection"],{"type":"all"})
         for path in directories:
             with self.subTest(name=path.parent.name):
                 setup=json.loads(path.read_text(encoding="utf-8"))
@@ -35,6 +43,11 @@ class SemanticBenchmarkTests(unittest.TestCase):
                 self.assertNotEqual(cascade["fast"]["model_id"],cascade["strong"]["model_id"])
                 self.assertTrue((path.parent/"run.py").is_file())
                 self.assertTrue((path.parent/"README.md").is_file())
+
+    def test_full_n4ze3m_is_not_smoke(self):
+        name="n4ze3m-typed-decisions-train__basal-pico-ultra__confidence-min-t0p656352"
+        wrapper=(ROOT/"benchmarks"/name/"run.py").read_text()
+        self.assertIn('"--suite","source"',wrapper)
 
     def test_wide_downloader_discovers_all_six_pinned_files(self):
         # Five selections, but procedural data uses two shards.

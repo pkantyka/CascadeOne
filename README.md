@@ -25,7 +25,7 @@ python benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/run.py
 python tools/validate_result.py output/benchmarks/smoke-general__laya-clef__confidence-min-t0p900000
 ```
 
-The bundled smoke dataset only tests integration. No production-quality or performance claim follows from it.
+The full n4ze3m benchmark is in the source suite, not smoke. The bundled smoke dataset only tests integration. No production-quality or performance claim follows from it.
 
 ## Repository lifecycle
 

@@ -26,6 +26,7 @@ Group launchers reuse the same 19 definitions:
 
     python benchmarks/run_confidence_wide.py --suite external --dry-run
     python benchmarks/run_confidence_wide.py --suite wide --dry-run
+    python benchmarks/run_confidence_wide.py --suite source --dry-run
     python benchmarks/run_confidence_wide.py --suite smoke --dry-run
 
 Download original data first using datasets/ source downloaders.
@@ -35,3 +36,5 @@ An auxiliary single-model strong-alone residency control is exposed
 by runner.py, but is NOT a complete three-arm benchmark.
 
 See EXTERNAL-SOURCES.md and CONFIDENCE-WIDE.md. GPU validation pending.
+
+The smoke suite contains only synthetic bundled integration inputs (3 rows). The source suite contains full n4ze3m train data (not an independent test).

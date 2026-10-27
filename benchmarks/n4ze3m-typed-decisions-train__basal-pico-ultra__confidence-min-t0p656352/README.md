@@ -14,3 +14,5 @@ From Community root with pinned inference servers running:
     python benchmarks/n4ze3m-typed-decisions-train__basal-pico-ultra__confidence-min-t0p656352/run.py --repeats 2
 
 All source files are independently downloaded through datasets/sources/.
+
+This is the full original n4ze3m training source, not a smoke test. Its dedicated suite is source. It is not an independent held-out evaluation.

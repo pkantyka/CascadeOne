@@ -107,9 +107,13 @@ class SourceRegistryTests(unittest.TestCase):
                 "gold":'{"different":true}'}
         with self.assertRaisesRegex(ValueError,"Gold mismatch"):
             adapters.n4ze3m_gold(sample)
-        for source in ("../escape","/etc/passwd","..\\escape"):
-            with self.assertRaises(ValueError):
-                catalog.safe_relative(source)
+        for source in ("../escape","a/../b","/etc/passwd","//server/share",
+                       "..\\escape","C:/Windows/system32","C:relative",
+                       "\\\\server\\share","a//b","a/./b","a/",".",""):
+            with self.subTest(path=source):
+                with self.assertRaises(ValueError):
+                    catalog.safe_relative(source)
+        self.assertEqual(catalog.safe_relative("data/train.jsonl"),Path("data/train.jsonl"))
         with self.assertRaisesRegex(ValueError,"selection"):
             adapters.normalize(ROOT/"datasets/bundled/smoke/source.jsonl",
                                selection={"type":"something_unknown"})

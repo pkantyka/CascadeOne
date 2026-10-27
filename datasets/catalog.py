@@ -8,7 +8,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import re
 import shutil
 import urllib.parse
@@ -29,10 +29,12 @@ def sha(path):
 def safe_relative(value):
     if not isinstance(value,str) or not value or "\\" in value:
         raise ValueError("invalid relative source path")
-    p=Path(value)
-    if p.is_absolute() or any(part in (".","..","") for part in p.parts):
+    if any(part in ("", ".", "..") for part in value.split("/")):
         raise ValueError("unsafe source path")
-    return p
+    win=PureWindowsPath(value)
+    if value.startswith("/") or win.drive or win.root:
+        raise ValueError("unsafe source path")
+    return Path(value)
 
 def registry(path=REGISTRY):
     data=json.loads(Path(path).read_text(encoding="utf-8"))

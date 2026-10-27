@@ -9,5 +9,5 @@
   "selection": {
     "type": "all"
   },
-  "suite": "smoke"
+  "suite": "source"
 }

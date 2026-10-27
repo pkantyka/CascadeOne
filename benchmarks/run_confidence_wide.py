@@ -88,7 +88,7 @@ def paired_ci(path,draws=600):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--output-root",type=Path)
-    p.add_argument("--suite",choices=("wide","external","smoke"),default="wide")
+    p.add_argument("--suite",choices=("wide","external","source","smoke"),default="wide")
     p.add_argument("--setup-id",help="run one setup from the selected suite")
     p.add_argument("--repeats",type=int,default=2)
     p.add_argument("--warmup",type=int,default=3)
@@ -158,6 +158,7 @@ def main():
             "source_warning":{
                 "wide":"train sources; model pretraining contamination not ruled out",
                 "external":"public test/heldout; model training overlap unknown; BJB banking77 and clinc150 overlap originals",
+                "source":"full upstream n4ze3m train split; model pretraining overlap not ruled out",
                 "smoke":"synthetic integration-only data; not representative of model quality"
             }[a.suite],
             "runs":report},ensure_ascii=False,indent=2)+"\n")
