@@ -202,7 +202,6 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
             "benchmark_setup":setup_identity or {"adapter":adapter,"selection":selection},
             "normalized_requests_sha256":normalized_sha,
             "normalization_audit":normalization_audit,
-            "community_source_sha256":sha(Path(__file__).resolve().parents[1]/"distribution-manifest.json") if (Path(__file__).resolve().parents[1]/"distribution-manifest.json").is_file() else None,
             "measurement_note":"client wall-clock HTTP; no cached answers; CPU/GPU telemetry host-global",
             "gold_coverage":"all" if all(x.get("gold") is not None for x in rows) else "partial_or_none",
             "workload":{"domains":dict(Counter(x.get("domain","unspecified") for x in rows)),

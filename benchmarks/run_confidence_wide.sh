@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run from Community root on compatible ARM64 NVIDIA GPU host.
+# Run from the repository root on compatible ARM64 NVIDIA GPU host.
 set -eu
 COMPOSE=cascades/basal-pico-ultra/compose.yaml
 DEST=${1:-output/confidence-wide-20261027}

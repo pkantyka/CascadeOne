@@ -38,7 +38,7 @@ class ClefStrongBackend:
         if model_id != MODEL_ID or revision != REVISION:
             raise ValueError('reference backend requires the audited Clef checkpoint/revision')
         if device != 'cuda' or not torch.cuda.is_available():
-            raise RuntimeError('never load real Clef on the development CPU; use tiny')
+            raise RuntimeError('real Clef requires CUDA; use tiny on CPU')
         from huggingface_hub import snapshot_download
         path = snapshot_download(model_id, revision=revision)
         self.upstream = import_upstream(path)

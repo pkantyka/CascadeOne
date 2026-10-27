@@ -8,11 +8,11 @@ One benchmark = source/split + model pair + routing policy.
 - Dataset selection: {"type":"all"}.
 - Every execution compares fast_only, strong_only and cascade on identical requests.
 
-From Community root with pinned inference servers running:
+From the repository root with pinned inference servers running:
 
     python benchmarks/n4ze3m-typed-decisions-train__basal-pico-ultra__confidence-min-t0p656352/run.py --dry-run
     python benchmarks/n4ze3m-typed-decisions-train__basal-pico-ultra__confidence-min-t0p656352/run.py --repeats 2
 
-All source files are independently downloaded through datasets/sources/.
+Source acquisition and verification are documented in datasets/README.md. Synthetic smoke data is bundled; other sources are pinned.
 
 This is the full original n4ze3m training source, not a smoke test. Its dedicated suite is source. It is not an independent held-out evaluation.

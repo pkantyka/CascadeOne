@@ -1,5 +1,5 @@
 #!/bin/sh
-# GPU execution from Community root. Data acquisition never trains models.
+# GPU execution from the repository root. Data acquisition never trains models.
 set -eu
 COMPOSE=cascades/basal-pico-ultra/compose.yaml
 DEST=${1:-output/confidence-external-20261027}

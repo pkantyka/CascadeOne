@@ -1,7 +1,7 @@
 # Within-family confidence benchmark group
 
 Five named benchmark definitions compare Pico-only, Ultra-only and
-the Pico -> minimum-confidence -> Ultra cascade using frozen H1
+the Pico -> minimum-confidence -> Ultra cascade using frozen
 threshold 0.6563522219657898.
 
 | Benchmark directory | Original source | Selected fraction |

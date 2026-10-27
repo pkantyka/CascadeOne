@@ -8,9 +8,9 @@ One benchmark = source/split + model pair + routing policy.
 - Dataset selection: {"type":"all"}.
 - Every execution compares fast_only, strong_only and cascade on identical requests.
 
-From Community root with pinned inference servers running:
+From the repository root with pinned inference servers running:
 
     python benchmarks/better-jev-bench-ledgar-heldout__basal-pico-ultra__confidence-min-t0p656352/run.py --dry-run
     python benchmarks/better-jev-bench-ledgar-heldout__basal-pico-ultra__confidence-min-t0p656352/run.py --repeats 2
 
-All source files are independently downloaded through datasets/sources/.
+Source acquisition and verification are documented in datasets/README.md. Synthetic smoke data is bundled; other sources are pinned.

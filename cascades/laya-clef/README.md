@@ -4,13 +4,13 @@ Pinned Laya (fast) and Clef-Flash (strong) run in **separate, independently meas
 
 ## Requirements
 
-ARM64 NVIDIA CUDA system, Docker Compose with GPU support, an authorized immutable NGC CUDA base digest compatible with Dockerfile, access to the pinned Laya/Clef Hugging Face revisions, and enough GPU RAM for both models concurrently. This original stack is DGX Spark-oriented. It has not been rebuilt from the Community tree yet.
+ARM64 NVIDIA CUDA system, Docker Compose with GPU support, an authorized immutable NGC CUDA base digest compatible with Dockerfile, access to the pinned Laya/Clef Hugging Face revisions, and enough GPU RAM for both models concurrently. The stack targets DGX Spark-class hardware; a clean GPU deployment has not yet been validated for release.
 
 Pin a compatible CUDA base:
 
     export CASCADEONE_CUDA_BASE='nvcr.io/...@sha256:YOUR_VERIFIED_DIGEST'
 
-From Community root:
+From the repository root:
 
     docker compose -f cascades/laya-clef/compose.yaml build fast strong
     docker compose -f cascades/laya-clef/compose.yaml up -d fast strong
@@ -23,4 +23,4 @@ Run a genuine benchmark with another unique output path and frozen dataset. The 
 
 Do not submit smoke results as real quality benchmarks.
 
-Historical R0–R4 experiments are documented in docs/development-evidence/ROUTING_EXPERIMENT_CLOSEOUT.md, but the confidence threshold is defined by the cascade profile and not the runner; R0–R4 historical policies are not automatically reimplemented. The strong-only baseline in this wrapper is a separate Clef HTTP server, not the exact old experimental runner; new results must be compared to old numbers with care.
+The confidence threshold is defined by the cascade profile, not the benchmark runner. Only the policies implemented in cascades/policies.py are available. The strong-only baseline measures the configured Clef HTTP service; compare latency and quality only under matching workload and hardware conditions.

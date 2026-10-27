@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "CascadeOne Community Run Manifest v0.1",
+  "title": "CascadeOne Run Manifest v0.1",
   "type": "object",
   "required": [
     "schema",

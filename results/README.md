@@ -1,4 +1,4 @@
-# Community run registry
+# CascadeOne run registry
 
 All contributors — maintainers included — submit results under results/runs/<run-id>/. There is no special "reference" class.
 
@@ -8,4 +8,4 @@ Runs carry manifest.json, environment.json, measurements.jsonl, telemetry.jsonl,
 
 For private data, submit only non-sensitive aggregates and provenance that the owner permits; identifiers in per-request measurements may themselves be sensitive. Reduced reproduction claims must be clearly labelled.
 
-The first engineering preview includes no new GPU runs. Historical experiments appear as engineering evidence only. A results browser is not part of this release.
+No validated GPU runs are bundled. A results browser is not part of this release.

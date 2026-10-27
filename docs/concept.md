@@ -6,6 +6,10 @@ One reference policy is request-level confidence gating: run the fast model once
 
 Model vendor and model family are implementation details. Laya/Clef and Basal Pico/Ultra are equally legitimate baseline configurations.
 
+## Architecture experiments
+
+CascadeOne also explores changes to model architecture and model composition in cascades, including specialized decision heads, adapters, distillation, additional fast experts, pre-routers, learned escalation predictors and latent fusion. The aim is to compare alternative complete-system configurations, not just routing thresholds. All added inference, memory and communication overhead must be measured. Proposed variants are not considered implemented until validated here.
+
 ## Engineering questions
 
 - At which escalation rates does a small model reduce mean/p95 latency?
@@ -16,4 +20,4 @@ Model vendor and model family are implementation details. Laya/Clef and Basal Pi
 
 No one benchmark establishes universal superiority. Different hardware, tokenization, model revisions, workload distributions, and model scheduling change the answer.
 
-See architectures.md, hypotheses.md and docs/development-evidence for detailed prior work.
+For implementation details and research hypotheses, see architectures.md and hypotheses.md.

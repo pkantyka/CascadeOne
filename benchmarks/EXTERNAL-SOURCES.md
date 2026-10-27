@@ -17,7 +17,7 @@ Downloaded raw files stay in ignored datasets/cache/raw/; no datasets
 are included in Git.
 
 There are ten named text benchmarks for the frozen Pico/Ultra models
-and the H1 minimum-confidence strategy. Every one runs Pico-only,
+and the pinned minimum-confidence strategy. Every one runs Pico-only,
 Ultra-only and the full Pico -> confidence -> Ultra cascade.
 
 Examples:

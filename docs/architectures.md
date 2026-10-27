@@ -1,21 +1,30 @@
-# Candidate architectures
+# CascadeOne architectures
 
-**Implemented Community runtime**: the configured policy may pre-route to strong or inspect a fast decision to accept/escalate. Confidence threshold is one supported policy, not a benchmark requirement. Built-ins include always_fast, always_strong, max_questions_pre_router and confidence_threshold; trusted plug-in policies implement before/after hooks. The baseline always invokes strong directly. One routing decision applies to the whole request.
+## Implemented: conditional decision cascade
 
-**Pre-router**: a simple question-count bypass is implemented as a confidence-free Community example. Model-based trained pre-routing remains experimental, not part of the reference package.
+The runtime in `cascades/runtime.py` executes a request with a fast and strong backend. The routing policy in `cascades/policies.py` may bypass fast inference before it starts or inspect the fast response afterward. A routing decision applies to the complete request.
 
-**Post-hoc gain router (implemented experimental code in Development only)**: use confidence, margins, entropy and request properties to estimate whether strong inference will improve Gold score. This is distinct from estimating confidence of a fast answer.
+Supported policies:
 
-**Latent router (prototype in Development)**: use the small model hidden states as extra features; a deployable version must reuse its single forward pass, otherwise the extra inference cost can dominate.
+- `confidence_threshold`: accept or escalate using request-level minimum, mean or maximum answer confidence and a configurable threshold.
+- `max_questions_pre_router`: send requests with too many questions directly to strong inference, without using confidence.
+- `always_fast` and `always_strong`: explicit fixed-routing controls.
+- `plugin`: a trusted Python factory implementing `before` and `after` hooks.
 
-**Distillation (planned test)**: train a small decision model against the pinned strong model's distributions. Measure both fidelity to the teacher and correctness against independent Gold. Distillation does not establish calibrated correctness or guarantee useful routing.
+The benchmark engine uses the same requests for fast-only, strong-only and cascade arms. Its measurements include end-to-end latency and the actual fallback cost. Gold labels and benchmark data preparation do not affect the router.
 
-**Dual head / fidelity risk (design only)**: separate a decision head (teacher distribution) from a request-level discrepancy predictor. Distinguish predicting teacher agreement from predicting improvement to original-source Gold.
+## Other research directions (not implemented here)
 
-**Hybrid multi-expert and fusion (design/prototype)**: optional pre-router among different fast specialists, fallback to strong; optional latent fusion of both models, evaluated only under strict controls. Not part of Community v0.1 runtime.
+- **Expected-gain routing:** estimate when escalation will improve Gold quality, rather than trusting raw answer confidence.
+- **Latent routing:** use hidden representations from the fast model to predict escalation benefit without adding another complete forward pass.
+- **Teacher-to-student distillation:** train a small model to approximate a pinned strong model, then test both teacher agreement and independent Gold correctness.
+- **Fidelity-risk head:** distinguish predicting teacher agreement from predicting actual correctness.
+- **Multiple fast specialists and fusion:** conditionally choose a specialist or fuse representations while accounting for the additional compute cost.
 
-All hypotheses remain falsifiable. Their implementation and verification status must be stated separately.
+- **Model architecture variants:** study specialized decision heads, adapters, model-internal changes and additional components as parts of a complete cascade, measuring their incremental inference and resource costs.
 
-## Source data vs benchmark setup
+These are conceptual alternatives, not available routing policies or validated performance claims.
 
-Source datasets remain immutable and model-neutral. A versioned setup identifies the cascade, adapter translating source records into model requests, Gold mapping, and optional filtering/sampling. The generic benchmark runner measures execution without consulting confidence itself. Offline dataset conversion is tracked in provenance, not charged to timed request latency.
+## Data and evaluation boundary
+
+Original datasets are acquired and checksum-verified in `datasets/`; benchmark-owned adapters, Gold interpretation and selection reside under `benchmarks/`. Only model-side processing, routing and fallback execution contribute to timed request inference. Every measured configuration must preserve dataset and model identity for a fair comparison.
