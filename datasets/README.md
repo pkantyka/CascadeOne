@@ -1,6 +1,6 @@
 # Source datasets are independent of cascade benchmark setups
 
-A source dataset is not a benchmark setup. The source registry does not map labels, construct System One requests, select questions, filter domains, tune routing or create calibration/test splits. Those decisions belong to a versioned benchmark setup under benchmarks/setups/ and its named adapter.
+A source dataset is not a benchmark setup. The source registry does not map labels, construct System One requests, select questions, filter domains, tune routing or create calibration/test splits. Those decisions belong to a versioned benchmark setup under its semantically named benchmark directory and adapter.
 
 Two delivery modes share the same contract:
 
@@ -20,7 +20,7 @@ The downloadable file is placed under datasets/cache/raw/ and ignored by Git. Th
 Run a specific benchmark setup:
 
     python benchmarks/runner.py \
-      --setup benchmarks/setups/pico-ultra-n4ze3m.json \
+      --setup benchmarks/n4ze3m-typed-decisions-train__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
       --output output/pico-n4ze3m-run
 
 That setup selects the cascade and its routing policy, a source dataset, an adapter and a selection rule. The adapter parses upstream n4ze3m state/questions/Gold into typed requests, entirely outside the source registry. All rows are included when selection.type=all. Example optional per-setup selection: {"type":"hash_range","start":0.0,"end":0.2,"seed":20261026}. No such selection is applied by default.

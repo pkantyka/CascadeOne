@@ -22,9 +22,8 @@ class ExternalTests(unittest.TestCase):
             self.assertEqual(len(entry["source"]["revision"]),40)
             self.assertEqual(len(entry["source"]["sha256"]),64)
             self.assertTrue(catalog.source_url(entry["source"]).startswith("https://"))
-        setups=([ROOT/"benchmarks/banking77/setup.json",
-                 ROOT/"benchmarks/clinc150/setup.json"]+
-                sorted((ROOT/"benchmarks/better-jev-bench/setups").glob("*.json")))
+        setups=[p for p in (ROOT/"benchmarks").glob("*/benchmark.json")
+                if json.loads(p.read_text()).get("suite")=="external"]
         self.assertEqual(len(setups),10)
         for setup_path in setups:
             setup=json.loads(setup_path.read_text())

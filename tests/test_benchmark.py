@@ -101,7 +101,7 @@ class SmokeTests(unittest.TestCase):
         import io
         from contextlib import redirect_stdout
         output=self.root/"setup-output"
-        setup=ROOT/"benchmarks/setups/laya-clef-smoke.json"
+        setup=ROOT/"benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json"
         with mock.patch.object(sys,"argv",["runner.py","--setup",str(setup),"--output",str(output)]),\
              mock.patch.object(runner,"run",return_value={"ok":True}) as call,\
              redirect_stdout(io.StringIO()):
@@ -111,7 +111,7 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(Path(args[1]).name,"source.jsonl")
         self.assertEqual(kwargs["adapter"],"typed_decisions_v1")
         self.assertEqual(kwargs["selection"],{"type":"all"})
-        self.assertEqual(kwargs["setup_identity"]["id"],"laya-clef-smoke")
+        self.assertEqual(kwargs["setup_identity"]["id"],"smoke-general__laya-clef__confidence-min-t0p900000")
         self.assertEqual(kwargs["dataset_identity"]["mode"],"bundled")
 
     def test_gold_and_probability_guards(self):

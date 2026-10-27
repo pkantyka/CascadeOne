@@ -1,0 +1,13 @@
+{
+  "schema": "cascadeone-benchmark-setup-v1",
+  "id": "smoke-general__laya-clef__pre-router-max-questions-1",
+  "cascade": "cascades/laya-clef/benchmark-pre-router.json",
+  "dataset": {
+    "id": "smoke-general-v1"
+  },
+  "adapter": "typed_decisions_v1",
+  "selection": {
+    "type": "all"
+  },
+  "suite": "smoke"
+}

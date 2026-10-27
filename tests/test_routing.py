@@ -1,5 +1,4 @@
 """Confidence and confidence-free policies do not change benchmark measurement."""
-import json
 from pathlib import Path
 import sys
 import unittest

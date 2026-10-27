@@ -37,9 +37,12 @@ class CompleteOriginalSources(unittest.TestCase):
             "atari_head","banking77","cfpb_complaints","civil_comments",
             "clinc150","cuad","go_emotions","ledgar","massive","os_atlas",
             "screenspot_v2")})
-        setups=list((ROOT/"benchmarks/better-jev-bench/setups").glob("*.json"))
+        import json
+        setups=[p for p in (ROOT/"benchmarks").glob("*/benchmark.json")
+                if json.loads(p.read_text()).get("suite")=="external"
+                and p.parent.name.startswith("better-jev-bench-")]
         self.assertEqual(len(setups),8)
-        self.assertFalse(any("screenspot" in s.name for s in setups))
+        self.assertFalse(any("screenspot" in s.parent.name for s in setups))
 
 
 if __name__=="__main__":

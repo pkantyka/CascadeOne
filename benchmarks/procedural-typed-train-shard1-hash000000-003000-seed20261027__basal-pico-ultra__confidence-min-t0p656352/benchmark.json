@@ -1,0 +1,16 @@
+{
+  "schema": "cascadeone-benchmark-setup-v1",
+  "id": "procedural-typed-train-shard1-hash000000-003000-seed20261027__basal-pico-ultra__confidence-min-t0p656352",
+  "cascade": "cascades/basal-pico-ultra/benchmark.json",
+  "dataset": {
+    "id": "procedural-typed-1-v1"
+  },
+  "adapter": "procedural_gold_v1",
+  "selection": {
+    "type": "hash_range",
+    "start": 0.0,
+    "end": 0.003,
+    "seed": 20261027
+  },
+  "suite": "wide"
+}

@@ -1,0 +1,13 @@
+{
+  "schema": "cascadeone-benchmark-setup-v1",
+  "id": "smoke-general__basal-pico-ultra__confidence-min-t0p656352",
+  "cascade": "cascades/basal-pico-ultra/benchmark.json",
+  "dataset": {
+    "id": "smoke-general-v1"
+  },
+  "adapter": "typed_decisions_v1",
+  "selection": {
+    "type": "all"
+  },
+  "suite": "smoke"
+}

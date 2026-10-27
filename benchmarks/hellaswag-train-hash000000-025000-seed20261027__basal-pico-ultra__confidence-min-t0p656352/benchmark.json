@@ -1,0 +1,16 @@
+{
+  "schema": "cascadeone-benchmark-setup-v1",
+  "id": "hellaswag-train-hash000000-025000-seed20261027__basal-pico-ultra__confidence-min-t0p656352",
+  "cascade": "cascades/basal-pico-ultra/benchmark.json",
+  "dataset": {
+    "id": "hellaswag-train-v1"
+  },
+  "adapter": "hellaswag_gold_v1",
+  "selection": {
+    "type": "hash_range",
+    "start": 0.0,
+    "end": 0.025,
+    "seed": 20261027
+  },
+  "suite": "wide"
+}

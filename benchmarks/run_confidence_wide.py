@@ -1,4 +1,4 @@
-"""H1 confidence cascade: separate reproducible raw-source benchmark runs.
+"""Run groups of semantically named cascade benchmarks with three arms.
 
 Compare Pico-only, Ultra-only and Pico->confidence->Ultra on every setup.
 No G1, re-training, label-based threshold choice or cached timing.
@@ -15,10 +15,27 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"datasets"))
 sys.path.insert(0,str(ROOT/"tools"))
 from catalog import resolve  # noqa: E402
+from identity import benchmark_id  # noqa: E402
 from runner import run, load_dataset, sha  # noqa: E402
 from validate_result import validate  # noqa: E402
 
-SETUPS=sorted((ROOT/"benchmarks/setups").glob("pico-ultra-wide-*.json"))
+def benchmark_setups(suite):
+    """One folder = one source/split + model pair + routing strategy."""
+    setups=sorted((ROOT/"benchmarks").glob("*/benchmark.json"))
+    selected=[]
+    ids=set()
+    for path in setups:
+        config=json.loads(path.read_text(encoding="utf-8"))
+        ident=config.get("id")
+        cascade_path=ROOT/config["cascade"]
+        cascade=json.loads(cascade_path.read_text(encoding="utf-8"))
+        if ident!=path.parent.name or ident!=benchmark_id(config,cascade):
+            raise ValueError("benchmark ID does not match dataset, models and strategy: "+str(path))
+        if ident in ids: raise ValueError("duplicate benchmark ID: "+ident)
+        ids.add(ident)
+        if config.get("suite")==suite:
+            selected.append(path)
+    return selected
 
 def paired_ci(path,draws=600):
     with (path/"measurements.jsonl").open(encoding="utf-8") as stream:
@@ -71,30 +88,44 @@ def paired_ci(path,draws=600):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--output-root",type=Path)
-    p.add_argument("--suite",choices=("wide","external"),default="wide")
+    p.add_argument("--suite",choices=("wide","external","smoke"),default="wide")
     p.add_argument("--setup-id",help="run one setup from the selected suite")
     p.add_argument("--repeats",type=int,default=2)
     p.add_argument("--warmup",type=int,default=3)
-    p.add_argument("--phase",choices=("colocated","strong-alone"),default="colocated")
+    # A benchmark always runs all three arms. Strong-alone is separate
+    # auxiliary residency analysis available only through runner.py.
     p.add_argument("--dry-run",action="store_true",help="verify/normalize datasets without running models")
+    p.add_argument("--list",action="store_true",
+                   help="list named three-arm benchmarks without acquiring data")
     a=p.parse_args()
     if a.repeats<1 or a.warmup<0:
         p.error("invalid repeats/warmup")
     if a.output_root is None:
         a.output_root=ROOT/("output/confidence-"+a.suite)
-    if not a.dry_run and a.output_root.exists():
-        raise FileExistsError("suite output exists, refusing overwrite")
-    external=[ROOT/"benchmarks/banking77/setup.json",ROOT/"benchmarks/clinc150/setup.json"]
-    external+=sorted((ROOT/"benchmarks/better-jev-bench/setups").glob("*.json"))
-    setups=SETUPS if a.suite=="wide" else external
+    setups=benchmark_setups(a.suite)
     if a.setup_id:
         setups=[path for path in setups
                 if json.loads(path.read_text(encoding="utf-8"))["id"]==a.setup_id]
     if not setups:
         raise ValueError("no matching benchmark setup")
+    if a.list:
+        for spath in setups:
+            setup=json.loads(spath.read_text(encoding="utf-8"))
+            print(json.dumps({"benchmark":setup["id"],
+                  "dataset":setup["dataset"]["id"],
+                  "cascade":setup["cascade"],
+                  "arms":["fast_only","strong_only","cascade"]}))
+        return
+    if not a.dry_run and a.output_root.exists():
+        raise FileExistsError("suite output exists, refusing overwrite")
     report=[]
     for spath in setups:
         setup=json.loads(spath.read_text(encoding="utf-8"))
+        cascade_config=json.loads((ROOT/setup["cascade"]).read_text(encoding="utf-8"))
+        # Three-arm comparison is mandatory; no special-case single-model
+        # benchmark exists. Only the cascade arm uses routing strategy.
+        if "fast" not in cascade_config or "strong" not in cascade_config or "routing" not in cascade_config:
+            raise ValueError("benchmark must specify two models and a routing strategy")
         dataset,identity=resolve(setup["dataset"]["id"])
         selection=setup.get("selection",{"type":"all"})
         adapter=setup["adapter"]
@@ -104,26 +135,31 @@ def main():
                            "source_sha256":identity["source_sha256"],"normalization":audit})
             print(json.dumps(report[-1]),flush=True)
             continue
-        run_path=a.output_root/setup["id"]
+        run_path=a.output_root if a.setup_id else a.output_root/setup["id"]
         result=run(ROOT/setup["cascade"],dataset,run_path,a.repeats,a.warmup,
-                   phase=a.phase,dataset_identity=identity,adapter=adapter,
+                   phase="colocated",dataset_identity=identity,adapter=adapter,
                    selection=selection,setup_identity={"id":setup["id"],
                        "adapter":adapter,"selection":selection,"config_sha256":sha(spath)})
         verified=validate(run_path)
+        required_arms={"fast_only","strong_only","cascade"}
+        if set(result["arms"])!=required_arms:
+            raise ValueError("benchmark must measure all three arms")
         item={"setup":setup["id"],"source":identity,"verified":verified,
-              "arms":result["arms"],"phase":a.phase}
-        if a.phase=="colocated":
-            item["paired"]=paired_ci(run_path)
+              "arms":result["arms"],"phase":"colocated"}
+        item["paired"]=paired_ci(run_path)
         report.append(item)
         print(json.dumps({"setup":item["setup"],"paired":item.get("paired")}),flush=True)
     if not a.dry_run:
         a.output_root.mkdir(parents=True,exist_ok=True)
         (a.output_root/"suite.json").write_text(json.dumps({
-            "kind":"cascadeone-confidence-"+a.suite+"-v1","status":"complete",
+            "kind":"cascadeone-benchmark-suite-"+a.suite+"-v1","status":"complete",
+            "required_arms":["fast_only","strong_only","cascade"],
             "selection":"frozen per-setup; no calibration on test",
-            "source_warning":("train sources; model pretraining contamination not ruled out"
-                              if a.suite=="wide" else
-                              "mixed public test/heldout sources; model training overlap unknown; BJB banking77 and clinc150 overlap originals"),
+            "source_warning":{
+                "wide":"train sources; model pretraining contamination not ruled out",
+                "external":"public test/heldout; model training overlap unknown; BJB banking77 and clinc150 overlap originals",
+                "smoke":"synthetic integration-only data; not representative of model quality"
+            }[a.suite],
             "runs":report},ensure_ascii=False,indent=2)+"\n")
     print(json.dumps({"setups":len(report),"dry_run":a.dry_run},indent=2))
 

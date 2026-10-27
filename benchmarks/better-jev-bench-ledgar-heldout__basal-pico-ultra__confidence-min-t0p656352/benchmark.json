@@ -1,0 +1,13 @@
+{
+  "schema": "cascadeone-benchmark-setup-v1",
+  "id": "better-jev-bench-ledgar-heldout__basal-pico-ultra__confidence-min-t0p656352",
+  "cascade": "cascades/basal-pico-ultra/benchmark.json",
+  "dataset": {
+    "id": "bjb-ledgar-heldout-v1"
+  },
+  "adapter": "better_jev_heldout_gold_v1",
+  "selection": {
+    "type": "all"
+  },
+  "suite": "external"
+}

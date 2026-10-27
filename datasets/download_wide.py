@@ -5,7 +5,8 @@ from pathlib import Path
 from catalog import get, resolve
 
 ROOT=Path(__file__).resolve().parents[1]
-SETUPS=sorted((ROOT/"benchmarks/setups").glob("pico-ultra-wide-*.json"))
+SETUPS=sorted(p for p in (ROOT/"benchmarks").glob("*/benchmark.json")
+              if json.loads(p.read_text(encoding="utf-8")).get("suite")=="wide")
 
 def dataset_ids():
     return sorted({json.loads(p.read_text())["dataset"]["id"] for p in SETUPS})

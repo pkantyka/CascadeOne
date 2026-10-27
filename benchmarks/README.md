@@ -1,44 +1,37 @@
-# Benchmark setup owns data adaptation and routing configuration
+# Benchmark: dataset/split + model pair + escalation strategy
 
-A benchmark setup specifies a cascade, source dataset, versioned adapter and optional selection rule. A dataset definition stores only source identity and delivery mode.
+A benchmark lives in its own clearly named folder:
 
-    python datasets/catalog.py list
-    python datasets/catalog.py acquire n4ze3m-typed-decisions-v1
+    benchmarks/<dataset-and-split>__<models>__<strategy>/
+      benchmark.json   frozen source, model configuration and strategy
+      run.py           runs all three arms
+      README.md        documents the benchmark
 
-    python benchmarks/runner.py \
-      --setup benchmarks/setups/laya-clef-smoke.json \
-      --output output/laya-smoke
+Every benchmark runs fast_only (small-only), strong_only (large-only)
+and cascade (small model with routing and optional escalation) on
+identical requests. Baselines are not separate benchmarks.
+Output contains latency percentiles, Gold accuracy, escalation,
+provenance and paired bootstrap quality/speed comparisons.
 
-    python benchmarks/runner.py \
-      --setup benchmarks/setups/pico-ultra-n4ze3m.json \
-      --output output/pico-source-run
+The strategy tag includes confidence aggregation and a shortened
+threshold. Exact threshold/model revisions and deterministic input
+selection are in benchmark.json and its referenced cascade config.
 
-The examples above are different workloads; their absolute quality/latency should not be combined as controlled comparisons. Source-to-request conversion and Gold interpretation reside in benchmarks/adapters.py; benchmark setup JSON selects the adapter. selection.type=all is the default. Optional hash_range selection is explicit, reproducible and grouped by state, not silently imposed by dataset acquisition.
+One named benchmark:
 
-A custom local typed-decision JSONL can still be evaluated directly:
+    python benchmarks/banking77-test__basal-pico-ultra__confidence-min-t0p656352/run.py --dry-run
+    python benchmarks/banking77-test__basal-pico-ultra__confidence-min-t0p656352/run.py --repeats 2
 
-    python benchmarks/runner.py --cascade cascades/laya-clef/benchmark.json \
-      --dataset /path/to/your.jsonl --output output/local-run
+Group launchers reuse the same 19 definitions:
 
-Routing is part of the **cascade runtime** (cascades/runtime.py), using the configured policy (cascades/policies.py). The benchmark runner has no confidence threshold logic. Built-in policies include confidence_threshold, always_fast, always_strong and max_questions_pre_router; a trusted module:factory plugin may implement other policies. Any policy must decide before/after fast inference and emit a route decision, which is logged for every request.
+    python benchmarks/run_confidence_wide.py --suite external --dry-run
+    python benchmarks/run_confidence_wide.py --suite wide --dry-run
+    python benchmarks/run_confidence_wide.py --suite smoke --dry-run
 
-In colocated mode, both servers are resident and requests are measured for strong_only, fast_only and cascade. In strong-alone mode, only strong is resident. Repeats and arm order are randomized and the client is sequential. The runner measures HTTP wall time and request-time routing overhead, not offline dataset conversion or dataset download. Reports contain mean/p50/p95/p99, Gold where present, escalation, routing metadata, source and normalized input SHA-256, and host resource telemetry if available.
+Download original data first using datasets/ source downloaders.
+Selection, conversion and optional deduplication occur only inside
+benchmark processing. The shared engine is benchmarks/runner.py.
+An auxiliary single-model strong-alone residency control is exposed
+by runner.py, but is NOT a complete three-arm benchmark.
 
-    python tools/validate_result.py output/laya-smoke
-    python tools/compare_runs.py --standalone output/solo --colocated output/paired
-
-The smoke data are not a real performance benchmark. No concurrency/energy or per-process VRAM accuracy is claimed in this preview.
-
-## Wide-source confidence baseline
-
-See [CONFIDENCE-WIDE.md](CONFIDENCE-WIDE.md) for frozen multi-source
-Pico -> confidence -> Ultra runs (three live arms including Pico-only),
-raw downloads, exclusions and paired uncertainty estimates.
-
-## External confidence benchmark
-
-`python benchmarks/run_confidence_wide.py --suite external --dry-run`
-preflights raw sources, Gold and frozen input selection; add
-`--output-root output/confidence-external-20261027` to benchmark with
-co-resident Pico and Ultra servers. Details:
-[EXTERNAL-SOURCES.md](EXTERNAL-SOURCES.md).
+See EXTERNAL-SOURCES.md and CONFIDENCE-WIDE.md. GPU validation pending.

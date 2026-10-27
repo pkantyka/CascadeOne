@@ -17,9 +17,9 @@ From Community root:
 
 Wait for /health to become ready for both models (first load can be long). Run a tiny smoke test:
 
-    docker compose -f cascades/laya-clef/compose.yaml run --rm benchmark python benchmarks/runner.py --setup benchmarks/setups/laya-clef-smoke.json --output output/laya-smoke
+    docker compose -f cascades/laya-clef/compose.yaml run --rm benchmark python benchmarks/runner.py --setup benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json --output output/laya-smoke
 
-Run a genuine benchmark with another unique output path and frozen dataset. The runner measures both "strong_only" and "cascade" arms while **both models are resident**. For stand-alone residency, stop fast, keep strong, use --phase strong-alone and a new output path. Compare with tools/compare_runs.py.
+Run a genuine benchmark with another unique output path and frozen dataset. The benchmark measures all three arms: "fast_only", "strong_only" and "cascade" while **both models are resident**. For stand-alone residency, stop fast, keep strong, use --phase strong-alone and a new output path. Compare with tools/compare_runs.py.
 
 Do not submit smoke results as real quality benchmarks.
 

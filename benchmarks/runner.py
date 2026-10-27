@@ -1,4 +1,4 @@
-"""Measure real decision HTTP endpoints, comparing a cascade with strong-only.
+"""Measure three live decision HTTP arms: fast-only, strong-only and cascade.
 
 Standard-library only; Python 3.12. Never uses cached predictions for timing.
 """

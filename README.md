@@ -18,11 +18,11 @@ python datasets/catalog.py verify smoke-general-v1
 python datasets/catalog.py acquire n4ze3m-typed-decisions-v1
 ```
 
-On a compatible ARM64 NVIDIA GPU host, follow `cascades/laya-clef/README.md` or `cascades/basal-pico-ultra/README.md` to start model services. Then run a benchmark using one explicit setup:
+On a compatible ARM64 NVIDIA GPU host, follow `cascades/laya-clef/README.md` or `cascades/basal-pico-ultra/README.md` to start model services. Then run one named benchmark with its three mandatory arms:
 
 ```bash
-python benchmarks/runner.py --setup benchmarks/setups/laya-clef-smoke.json --output output/laya-smoke
-python tools/validate_result.py output/laya-smoke
+python benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/run.py
+python tools/validate_result.py output/benchmarks/smoke-general__laya-clef__confidence-min-t0p900000
 ```
 
 The bundled smoke dataset only tests integration. No production-quality or performance claim follows from it.
@@ -31,12 +31,14 @@ The bundled smoke dataset only tests integration. No production-quality or perfo
 
 The Development script `publishing/build_community.py` was used only to **bootstrap** this repository. Community now has its own Git history and is maintained directly; it is **not** rebuilt or synchronized from Development automatically. A new build from that script is not a replacement for this checkout.
 
+The original distribution-manifest.json is a historical bootstrap snapshot, not the current list of benchmark configurations. The current Git revision and per-benchmark SHA-256 manifests identify reproducible execution inputs.
+
 ## One responsibility per component
 
 - `datasets/`: original source acquisition and SHA-256 verification, **no implicit preparation or splits**.
-- `benchmarks/setups/` and `benchmarks/adapters.py`: which cascade/data to test and how to interpret source and Gold.
+- `benchmarks/<dataset>__<models>__<strategy>/`: one complete three-arm benchmark per dataset, model pair and routing strategy.
 - `cascades/`: model configuration, policy and execution; **confidence is optional**.
-- `benchmarks/runner.py`: strong-only versus cascade measurements and provenance; no routing policy.
+- `benchmarks/runner.py`: small-only, large-only and cascade measurements and provenance; routing is separate.
 - `results/runs/`: identical submission format for maintainers and contributors.
 
 For details, see `benchmarks/README.md`, `datasets/README.md`, `CONTRIBUTING.md` and `docs/`. Historic measurements are contextual evidence in `docs/development-evidence/`, not new reference runs.
