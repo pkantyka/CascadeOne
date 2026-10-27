@@ -27,6 +27,10 @@ python tools/validate_result.py output/laya-smoke
 
 The bundled smoke dataset only tests integration. No production-quality or performance claim follows from it.
 
+## Repository lifecycle
+
+The Development script `publishing/build_community.py` was used only to **bootstrap** this repository. Community now has its own Git history and is maintained directly; it is **not** rebuilt or synchronized from Development automatically. A new build from that script is not a replacement for this checkout.
+
 ## One responsibility per component
 
 - `datasets/`: original source acquisition and SHA-256 verification, **no implicit preparation or splits**.
