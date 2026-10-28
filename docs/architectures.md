@@ -11,7 +11,7 @@ Supported policies:
 - `always_fast` and `always_strong`: explicit fixed-routing controls.
 - `plugin`: a trusted Python factory implementing `before` and `after` hooks.
 
-The benchmark engine uses the same requests for fast-only, strong-only and cascade arms. Its measurements include end-to-end latency and the actual fallback cost. Gold labels and benchmark data preparation do not affect the router.
+The benchmark client calls the same inference service used by applications for fast-only, strong-only and cascade arms on identical requests. It measures both client end-to-end HTTP latency and engine-internal latency (including backend HTTP); neither is a pure GPU compute timer. Gold labels and benchmark data preparation do not affect the router.
 
 ## Other research directions (not implemented here)
 

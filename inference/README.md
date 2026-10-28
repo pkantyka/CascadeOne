@@ -1,8 +1,10 @@
 # Local inference: a whole cascade as one System One model
 
 Serve an existing CascadeOne profile through a **single System One HTTP API**.
-This is a **proxy/orchestration service**, not a new GPU engine: fast and strong
-models run in their original separately managed backend services.
+This is a **proxy/orchestration service**, not a new GPU backend: the fast
+model and strong model run in their own backend services. CascadeOne has
+two main usage modes: [Benchmark](../benchmarks/README.md) measures three
+arms through this engine; **Inference** exposes the cascade as one model.
 
 ## Start
 
@@ -94,14 +96,17 @@ config file SHA-256, model metadata and policy match the serving
 cascade *exactly*. A mismatched or tampered supplied report blocks
 startup instead of producing a misleading comparison.
 
-The banner displays:
-- Cascade and strong-only **mean latency**, percent reduction and
-  times-faster ratio; a negative reduction means slower.
-- Cascade and strong-only **p95 latency** and their ratio.
-- Paired **Gold-based question accuracy** and loss in percentage points
-  where both arms have Gold. Missing Gold is explicitly flagged.
-- Warnings for underwhelming speedup, excessive quality loss, p95
-  regression, very small/synthetic samples, and workload limitations.
+The startup banner compares the cascade with the **strong model**
+(`strong_only`) using:
+- **Client end-to-end mean latency**, percentage reduction and
+  times-faster ratio (negative reduction means the cascade is slower).
+- **Engine-internal mean latency**, excluding client-to-proxy HTTP but
+  including backend HTTP.
+- **Client end-to-end p95 latency** and its ratio to `strong_only`.
+- **Gold-based question accuracy** and the difference in percentage
+  points, when both arms have Gold.
+- Warnings for insufficient mean speedup, excessive quality loss, p95
+  regression, small/synthetic samples and workload limitations.
 
 Default **configurable warning thresholds** (pragmatic alert limits, not
 claims of statistical significance):
@@ -118,13 +123,16 @@ standalone CLI. If no benchmark was supplied, the server starts with
 **explicit UNKNOWN speedup and quality warnings**, never invented
 numbers.
 
-**Important:** These are historical *sequential benchmark-runner*
-measurements on its recorded hardware and requests. In particular,
-the extra HTTP proxy introduced here adds overhead **not included**
-in the historical benchmark. A valid record does not guarantee that
-the deployed facade will achieve the same speedup. Do not draw
-representative conclusions from smoke fixtures, training-source
-data, or host-level telemetry without the corresponding caveats.
+**Important:** A current benchmark uses the same System One inference
+proxy as the public API. Its client-measured end-to-end latency
+**includes** the proxy; its separately recorded engine-internal latency
+excludes client-to-proxy HTTP overhead but still includes upstream model
+HTTP. The service rejects historical results measured by the legacy
+direct-backend path as startup evidence. A matching benchmark is not
+a performance guarantee for different hardware, workloads or concurrency.
+Do not draw representative conclusions from smoke fixtures,
+training-source data or host-level telemetry without the corresponding
+caveats.
 
 ## Unified benchmark execution and timing
 

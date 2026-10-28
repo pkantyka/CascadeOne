@@ -1,14 +1,14 @@
 # Engineering preview gates
 
 - [x] Two model-pinned cascade definitions packaged
-- [x] Shared single-client benchmark runner, telemetry, structural validation
+- [x] Shared System One inference path for benchmark and serving; dual-path latency, telemetry and structural validation tested on CPU
 - [x] CPU-only tests included
 - [x] Two dataset delivery modes with checksums and offline tests
 - [ ] Download the pinned raw HF source from a clean repository checkout and run its benchmark-owned adapter
 - [ ] Final dataset licensing and Gold provenance review
-- [ ] Run both Compose stacks from this exact release on a compatible GPU host
+- [ ] Run both Compose stacks, including the unified inference service, on a compatible GPU host
 - [ ] Verify runtime model identity and immutable CUDA base image digests
-- [ ] Collect real new benchmark runs using the new runner and the same publicly redistributable frozen datasets
+- [ ] Re-run all retained performance benchmarks through the unified engine, including both latency paths, on appropriate frozen datasets
 - [ ] Inspect memory/CPU/GPU telemetry attribution and monitoring limitations
 - [ ] Check offline/online quality agreement and input eligibility on Laya
 - [ ] Obtain a definitive publication license and third-party notices

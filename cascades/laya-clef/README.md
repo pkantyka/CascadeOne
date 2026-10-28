@@ -10,27 +10,40 @@ Pin a compatible CUDA base:
 
     export CASCADEONE_CUDA_BASE='nvcr.io/...@sha256:YOUR_VERIFIED_DIGEST'
 
-From the repository root:
+From the repository root, run one of the two usage modes.
 
-    docker compose -f cascades/laya-clef/compose.yaml build fast strong
-    docker compose -f cascades/laya-clef/compose.yaml up -d fast strong
+### Benchmark mode
 
-Wait for /health to become ready for both models (first load can be long). Run a tiny smoke test:
+All three arms run through the shared inference service: fast model only,
+strong model only and the complete cascade. For a smoke integration test:
 
-    docker compose -f cascades/laya-clef/compose.yaml run --rm benchmark python benchmarks/runner.py --setup benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json --output output/laya-smoke
+~~~bash
+export CASCADEONE_BENCHMARK_TOKEN="$(openssl rand -hex 32)"
+docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build fast strong inference
+docker compose -f cascades/laya-clef/compose.yaml --profile inference --profile benchmark run --rm benchmark \
+  python benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/run.py --repeats 2
+python tools/validate_result.py output/benchmarks/smoke-general__laya-clef__confidence-min-t0p900000
+~~~
 
-Run a genuine benchmark with another unique output path and frozen dataset. The benchmark measures all three arms: "fast_only", "strong_only" and "cascade" while **both models are resident**. For stand-alone residency, stop fast, keep strong, use --phase strong-alone and a new output path. Compare with tools/compare_runs.py.
+Choose a fresh output directory for subsequent runs. Synthetic smoke
+results test integration only. The strong model baseline is the configured
+Clef service under **the same residency conditions**. For a genuine
+strong-alone residency control, start inference in `--strong-alone` mode
+with only the strong backend available and use `--phase strong-alone`;
+the standard Compose setup keeps both models resident and is not such
+a control. See the [benchmark guide](../../benchmarks/README.md).
 
-Do not submit smoke results as real quality benchmarks.
+### Inference mode
 
-The confidence threshold is defined by the cascade profile, not the benchmark runner. Only the policies implemented in cascades/policies.py are available. The strong-only baseline measures the configured Clef HTTP service; compare latency and quality only under matching workload and hardware conditions.
+To use Laya → Clef as one logical System One model without running a
+benchmark, start the same inference service (the benchmark token is
+optional and not needed for public requests):
 
-## Serve the complete cascade through one API
+~~~bash
+docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build fast strong inference
+curl http://127.0.0.1:18358/v1/models
+~~~
 
-The optional Docker Compose `inference` profile provides a host-local System One endpoint on `127.0.0.1:18358`. Start fast, strong and inference together:
-
-```bash
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up --build fast strong inference
-```
-
-See [local inference](../../inference/README.md) for the API, validated benchmark startup comparisons and alert limits.
+The configured routing policy and models remain unchanged.
+See [local inference](../../inference/README.md) for an API request,
+startup comparisons with verified benchmark results, and alert limits.

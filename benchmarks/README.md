@@ -1,46 +1,115 @@
-# Benchmark: dataset/split + model pair + escalation strategy
+# Benchmark mode: evaluate fast, strong and cascade
 
-A benchmark lives in its own clearly named folder:
+**Benchmark** measures a configured cascade against two single-model
+baselines on the same requests: `fast_only` (fast model), `strong_only`
+(strong model) and `cascade` (routing and conditional escalation).
+All three arms use the **same System One inference service**. The runner
+does not implement a second inference engine.
 
-    benchmarks/<dataset-and-split>__<models>__<strategy>/
-      benchmark.json   frozen source, model configuration and strategy
-      run.py           runs all three arms
-      README.md        documents the benchmark
+## Benchmark definitions
 
-Every benchmark runs fast_only (small-only), strong_only (large-only)
-and cascade (small model with routing and optional escalation) on
-identical requests. Baselines are not separate benchmarks.
-Output contains latency percentiles, Gold accuracy, escalation,
-provenance and paired bootstrap quality/speed comparisons.
+Each named benchmark has one directory:
 
-The strategy tag includes confidence aggregation and a shortened
-threshold. Exact threshold/model revisions and deterministic input
-selection are in benchmark.json and its referenced cascade config.
+~~~text
+benchmarks/<dataset-and-split>__<models>__<strategy>/
+  benchmark.json    dataset and split, cascade profile, adapter and selection
+  run.py            invokes the common three-arm runner
+  README.md         benchmark-specific context
+~~~
 
-One named benchmark:
+The strategy name includes the confidence aggregation and shortened
+threshold where relevant. The exact threshold, **model revisions and
+per-model backend profiles** live in the referenced cascade JSON.
+Dataset download and checksum verification belong in `datasets/`;
+selection, conversion, normalization and Gold interpretation belong
+to the benchmark setup, not the runtime.
 
-    python benchmarks/banking77-test__basal-pico-ultra__confidence-min-t0p656352/run.py --dry-run
-    python benchmarks/banking77-test__basal-pico-ultra__confidence-min-t0p656352/run.py --repeats 2
+## Run a benchmark
 
-Group launchers reuse the same 19 definitions:
+From the repository root on a compatible NVIDIA ARM64 GPU host, use the
+chosen cascade's Docker Compose file and a named matching benchmark.
+For Laya → Clef, first configure a verified `CASCADEONE_CUDA_BASE`
+as described in [the cascade guide](../cascades/laya-clef/README.md).
 
-    python benchmarks/run_confidence_wide.py --suite external --dry-run
-    python benchmarks/run_confidence_wide.py --suite wide --dry-run
-    python benchmarks/run_confidence_wide.py --suite source --dry-run
-    python benchmarks/run_confidence_wide.py --suite smoke --dry-run
+~~~bash
+export CASCADEONE_BENCHMARK_TOKEN="$(openssl rand -hex 32)"
+docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build fast strong inference
+docker compose -f cascades/laya-clef/compose.yaml --profile inference --profile benchmark run --rm benchmark \
+  python benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/run.py --repeats 2
+python tools/validate_result.py output/benchmarks/smoke-general__laya-clef__confidence-min-t0p900000
+~~~
 
-Download original data first using datasets/ source downloaders.
-Selection, conversion and optional deduplication occur only inside
-benchmark processing. The shared execution engine is inference/server.py. benchmarks/runner.py is the measurement client.
-An auxiliary single-model strong-alone residency control is exposed
-by runner.py, but is NOT a complete three-arm benchmark.
+The same token must be present in the inference and benchmark services;
+it authorizes benchmark-only modes, not ordinary `POST /v1/systemone`.
+Do not store or publish the token. Each run requires a new output directory
+(the runner refuses to overwrite existing measurements).
 
-See EXTERNAL-SOURCES.md and CONFIDENCE-WIDE.md. GPU validation pending.
+For Basal Pico → Ultra, use
+`cascades/basal-pico-ultra/compose.yaml` and a matching named setup.
+The benchmark's runtime URL inside Compose is
+`http://inference:18358`. Running a named benchmark locally outside
+Compose requires an accessible inference URL and
+`CASCADEONE_BENCHMARK_TOKEN`; use the runner's
+`--inference-url` option if needed.
 
-The smoke suite contains only synthetic bundled integration inputs (3 rows). The source suite contains full n4ze3m train data (not an independent test).
+List or dry-run suites without starting models:
 
-## Timing and backend provenance
+~~~bash
+python benchmarks/run_confidence_wide.py --suite smoke --list
+python benchmarks/run_confidence_wide.py --suite wide --dry-run
+python benchmarks/run_confidence_wide.py --suite external --dry-run
+python benchmarks/run_confidence_wide.py --suite source --dry-run
+~~~
 
-The three arms now use the same System One inference HTTP service, including the public cascade execution path. Set CASCADEONE_BENCHMARK_TOKEN (random 16+ characters) in both the inference service and runner; internal benchmark-only baseline endpoints are token-protected. The runner stores client end-to-end latency_ms, server engine_ms (includes backend HTTP), proxy_overhead_ms, fast_ms and strong_ms for each request, plus mean/p95 summaries. This does not measure pure GPU compute time. The cascade JSON pins the declared backend implementation, source revision, software version and execution mode per model; service identity and missing attestations are reported separately.
+These commands validate configurations and available data only; a
+`--dry-run` never establishes model speed or quality. For the wide and
+external datasets, download the pinned sources first using
+[dataset acquisition](../datasets/README.md). The historical
+`run_confidence_wide.sh` and `run_confidence_external.sh` helpers have
+**not yet been updated for the token-protected inference path**; use
+the documented Compose procedure instead of treating them as current
+end-to-end launch commands.
 
-The manifest labels the new execution path as systemone_inference_proxy_http and records engine version. Legacy timing reports must not be combined with these runs. Re-run performance experiments to establish updated results.
+## Two timing paths and backend provenance
+
+Each measurement contains:
+
+| Field | Scope |
+| --- | --- |
+| `latency_ms` | Client-observed HTTP end-to-end: request to complete response |
+| `engine_ms` | Inside the shared inference engine: routing plus backend HTTP requests |
+| `proxy_overhead_ms` | Difference: `latency_ms - engine_ms`, including client/proxy HTTP handling |
+| `fast_ms`, `strong_ms` | Each model backend's HTTP round-trip, when invoked |
+
+Both end-to-end and engine-internal latency have **mean and p95**
+summaries for each arm. The backend HTTP times are **not GPU-only
+forward-pass measurements**. Any extra backend-level profiling must be
+explicitly instrumented, labelled and measured separately.
+
+The run manifest records the cascade configuration SHA-256, declared
+model/backend implementations, versions, revisions, execution modes,
+container image references, inference service identity and an engine
+version (`inference-systemone-v1`). Declared backend metadata is
+distinct from fields attested by a running model server. A tag is not
+an immutable container digest.
+
+The execution field `systemone_inference_proxy_http` distinguishes new
+runs from the former `single_client_sequential_http` path. **Re-run
+historical performance benchmarks** before comparing their latency
+with the new measurement protocol; do not silently mix the two.
+Validated runs include paired input provenance, Gold quality where
+available, escalation, host-level telemetry and paired bootstrap
+quality/speed comparisons. Telemetry is host-wide, not per-model.
+
+A `strong-alone` residency control is supported by launching the
+inference service with `--strong-alone` and running the benchmark with
+`--phase strong-alone`. This is an auxiliary single-model measurement,
+not a complete three-arm benchmark. It needs a dedicated deployment
+with only the strong backend running; the standard Compose inference
+profile starts both models and is therefore **not** a strong-alone
+control.
+
+See [confidence-wide sources](CONFIDENCE-WIDE.md),
+[external sources](EXTERNAL-SOURCES.md) and
+[run output format](../results/schema/README.md).
+GPU validation of this refactored deployment is still pending.
