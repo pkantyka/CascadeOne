@@ -1,5 +1,7 @@
 """CPU-only acceptance tests of runner, validation, routing, Gold, reproducibility."""
 import json
+import threading
+from http.server import ThreadingHTTPServer
 import urllib.error
 from pathlib import Path
 import sys
@@ -35,8 +37,8 @@ class SmokeTests(unittest.TestCase):
         self.config.write_text(json.dumps({
             "schema":"cascadeone-cascade-v0.1","id":"mock-cascade",
             "routing":{"type":"confidence_threshold","parameters":{"threshold":0.7}},
-            "fast":{"url":"http://fast","model_id":"test/fast","revision":"sha"},
-            "strong":{"url":"http://strong","model_id":"test/strong","revision":"sha"}
+            "fast":{"url":"http://fast","model_id":"test/fast","revision":"sha","backend":{"implementation":"test-fast","mode":"mock"}},
+            "strong":{"url":"http://strong","model_id":"test/strong","revision":"sha","backend":{"implementation":"test-strong","mode":"mock"}}
         }))
         req={"state":"Test","questions":{"q":{"type":"choice",
                 "criteria":{"a":"A","b":"B"}}}}
@@ -52,10 +54,23 @@ class SmokeTests(unittest.TestCase):
         if "fast" in url:
             return {"answers":{"q":{"probabilities":{"a":0.6,"b":0.4},"confidence":0.6}}}
         return {"answers":{"q":{"probabilities":{"a":0.9,"b":0.1},"confidence":0.9}}}
+    def serve_inference(self, strong_alone=False):
+        from inference.server import Service, make_handler
+        server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(
+            Service(self.config, benchmark_token="test-secret-benchmark-token-987",
+                    strong_alone=strong_alone)))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return "http://127.0.0.1:" + str(server.server_port)
+
     def test_run_and_verify(self):
-        with mock.patch.object(runner,"request_json",side_effect=self.fake_request),\
+        url=self.serve_inference()
+        with mock.patch("inference.server.get_json",side_effect=self.fake_request),\
              mock.patch.object(runner,"Telemetry",SimulatedTelemetry):
-            result=runner.run(self.config,self.dataset,self.root/"r1",repeats=2,warmup=0)
+            result=runner.run(self.config,self.dataset,self.root/"r1",repeats=2,warmup=0,
+                              inference_url=url,benchmark_token="test-secret-benchmark-token-987")
             assert result["arms"]["cascade"]["escalation_rate"]==1
             assert result["by_domain"]["legal"]["cascade"]["n"]==4
             assert result["by_domain"]["medical"]["cascade"]["n"]==2
@@ -65,14 +80,25 @@ class SmokeTests(unittest.TestCase):
             assert result["arms"]["strong_only"]["n"]==6
             assert result["arms"]["fast_only"]["n"]==6
             self.assertEqual(result["arms"]["fast_only"]["escalation_rate"],0)
+            self.assertEqual(json.loads((self.root/"r1"/"manifest.json").read_text())["models"]["fast"]["backend"]["implementation"],"test-fast")
             self.assertEqual(result["arms"]["fast_only"]["question_expected_accuracy"],1)
+            self.assertIn("engine_mean_ms",result["arms"]["cascade"])
+            self.assertIn("proxy_overhead_mean_ms",result["arms"]["cascade"])
+            self.assertEqual(json.loads((self.root/"r1"/"manifest.json").read_text())["execution"],
+                             "systemone_inference_proxy_http")
+            measurements=[json.loads(x) for x in (self.root/"r1"/"measurements.jsonl").read_text().splitlines()]
+            self.assertTrue(all("engine_ms" in x and "proxy_overhead_ms" in x for x in measurements))
             assert set(result["by_domain"])=={"medical","legal"}
             assert result["by_domain"]["medical"]["cascade"]["n"]==2
             assert validate_result.validate(self.root/"r1")["valid"]
             with self.assertRaises(FileExistsError):
-                runner.run(self.config,self.dataset,self.root/"r1",warmup=0)
-            with mock.patch.object(runner,"request_json",side_effect=self.fake_request):
-                alone=runner.run(self.config,self.dataset,self.root/"r0",repeats=2,warmup=0,phase="strong-alone")
+                runner.run(self.config,self.dataset,self.root/"r1",warmup=0,
+                           inference_url=url,benchmark_token="test-secret-benchmark-token-987")
+            alone_url=self.serve_inference(strong_alone=True)
+            with mock.patch("inference.server.get_json",side_effect=self.fake_request):
+                alone=runner.run(self.config,self.dataset,self.root/"r0",repeats=2,warmup=0,
+                                 phase="strong-alone",inference_url=alone_url,
+                                 benchmark_token="test-secret-benchmark-token-987")
             assert alone["phase"]=="strong-alone"
             comparison=compare_runs.compare(self.root/"r0",self.root/"r1")
             assert comparison["gold_delta_pp"]==0
@@ -88,9 +114,12 @@ class SmokeTests(unittest.TestCase):
             if url=="http://fast/v1/systemone":
                 answer["answers"]["q"].pop("confidence",None)
             return answer
-        with mock.patch.object(runner,"request_json",side_effect=no_conf),\
+        url=self.serve_inference()
+        with mock.patch("inference.server.get_json",side_effect=no_conf),\
              mock.patch.object(runner,"Telemetry",SimulatedTelemetry):
-            report=runner.run(self.config,self.dataset,self.root/"confidence-free",repeats=1,warmup=0)
+            report=runner.run(self.config,self.dataset,self.root/"confidence-free",
+                              repeats=1,warmup=0,inference_url=url,
+                              benchmark_token="test-secret-benchmark-token-987")
         self.assertEqual(report["arms"]["cascade"]["escalation_rate"],0)
         self.assertTrue(validate_result.validate(self.root/"confidence-free")["valid"])
         rows=[json.loads(s) for s in (self.root/"confidence-free"/"measurements.jsonl").read_text().splitlines()]

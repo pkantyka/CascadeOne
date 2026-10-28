@@ -56,6 +56,8 @@ class InferenceTests(unittest.TestCase):
             "schema": "cascadeone-run-v0.1", "status": "complete",
             "cascade_id": self.config["id"],
             "cascade_config_sha256": hashlib.sha256(self.config_path.read_bytes()).hexdigest(),
+            "execution": "systemone_inference_proxy_http",
+            "engine_version": "inference-systemone-v1",
             "phase": "colocated", "repeats": 1, "n_requests": 2,
             "dataset_sha256": "0" * 64,
             "dataset_identity": {"mode": "local_unregistered", "id": "benchmark-user"},
@@ -69,6 +71,11 @@ class InferenceTests(unittest.TestCase):
             "strong_only": {"n": 2, "unique_requests": 2, "mean_ms": 100, "p95_ms": 110},
             "cascade": {"n": 2, "unique_requests": 2, "mean_ms": mean_cascade, "p95_ms": p95_cascade},
         }
+        for arm in arms.values():
+            arm["engine_mean_ms"] = arm["mean_ms"] * .9
+            arm["engine_p95_ms"] = arm["p95_ms"] * .9
+            arm["proxy_overhead_mean_ms"] = arm["mean_ms"] * .1
+            arm["proxy_overhead_p95_ms"] = arm["p95_ms"] * .1
         arms["strong_only"]["question_expected_accuracy"] = quality_strong if include_gold else None
         arms["cascade"]["question_expected_accuracy"] = quality_cascade if include_gold else None
         summary = {"schema": "cascadeone-summary-v0.1", "arms": arms}
@@ -77,6 +84,8 @@ class InferenceTests(unittest.TestCase):
             for arm in ("fast_only", "strong_only", "cascade"):
                 escalated = arm != "fast_only"
                 rows.append({"id": sample, "repeat": 0, "arm": arm,
+                             "latency_ms": 100., "engine_ms": 90., "proxy_overhead_ms": 10.,
+                             "fast_ms": 10., "strong_ms": 80.,
                              "escalated": escalated,
                              "routing": {"policy": self.config["routing"]["type"] if arm == "cascade" else arm,
                                          "escalated": escalated, "signals": {}}})

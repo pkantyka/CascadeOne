@@ -37,6 +37,8 @@ def read_report(cascade_path, config, run_path, *, min_speedup_pct=10.0,
     summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
     if manifest["phase"] != "colocated":
         raise ValueError("a colocated benchmark is required for a cascade/strong comparison")
+    if manifest.get("execution") != "systemone_inference_proxy_http":
+        raise ValueError("benchmark uses the legacy execution path; rerun via the shared inference API")
     if manifest["cascade_id"] != config["id"] or manifest["cascade_config_sha256"] != sha(cascade_path):
         raise ValueError("benchmark does not match the exact cascade configuration SHA-256")
     if manifest["routing"] != config["routing"] or manifest["models"] != {
@@ -59,6 +61,13 @@ def read_report(cascade_path, config, run_path, *, min_speedup_pct=10.0,
     c_p95 = finite(casc["p95_ms"], "cascade.p95_ms")
     if min(s_mean, c_mean, s_p95, c_p95) <= 0:
         raise ValueError("non-positive benchmark latency")
+    si_mean = finite(strong["engine_mean_ms"], "strong.engine_mean_ms")
+    ci_mean = finite(casc["engine_mean_ms"], "cascade.engine_mean_ms")
+    si_p95 = finite(strong["engine_p95_ms"], "strong.engine_p95_ms")
+    ci_p95 = finite(casc["engine_p95_ms"], "cascade.engine_p95_ms")
+    if min(si_mean, ci_mean, si_p95, ci_p95) <= 0:
+        raise ValueError("non-positive internal engine latency")
+    engine_saving = 100 * (1 - ci_mean / si_mean)
     saving = 100 * (1 - c_mean / s_mean)
     factor = s_mean / c_mean
     tail = c_p95 / s_p95
@@ -89,13 +98,16 @@ def read_report(cascade_path, config, run_path, *, min_speedup_pct=10.0,
         warnings.append("Training-source measurements are not independent held-out evidence.")
     if manifest["n_requests"] < 30:
         warnings.append(f"Only {manifest['n_requests']} unique requests: estimates may be unstable.")
-    warnings.append("Historical sequential HTTP benchmark; this inference proxy adds unmeasured overhead, and workload, hardware or concurrency may differ.")
+    warnings.append("Historical sequential HTTP proxy benchmark; workload, hardware or concurrency may differ from the current service.")
     return {
         "benchmark": str(root),
         "dataset_id": dataset_id,
         "setup_id": setup_id,
         "n_requests": manifest["n_requests"],
         "mean_latency_ms": {"cascade": c_mean, "strong": s_mean},
+        "engine_mean_latency_ms": {"cascade": ci_mean, "strong": si_mean},
+        "engine_p95_latency_ms": {"cascade": ci_p95, "strong": si_p95},
+        "engine_latency_reduction_pct": engine_saving,
         "p95_latency_ms": {"cascade": c_p95, "strong": s_p95},
         "latency_reduction_pct": saving,
         "speedup_factor": factor,
@@ -120,10 +132,13 @@ def startup_lines(report):
         ]
     lines = [
         f"[CascadeOne] Benchmark: {report['benchmark']} ({report['dataset_id']}, {report['n_requests']} requests)",
-        f"[CascadeOne] Mean latency: cascade {report['mean_latency_ms']['cascade']:.1f} ms, "
+        f"[CascadeOne] End-to-end mean latency: cascade {report['mean_latency_ms']['cascade']:.1f} ms, "
         f"strong {report['mean_latency_ms']['strong']:.1f} ms; "
         f"reduction {report['latency_reduction_pct']:+.1f}%, "
         f"speedup {report['speedup_factor']:.2f}x.",
+        f"[CascadeOne] Engine-internal mean: cascade {report['engine_mean_latency_ms']['cascade']:.1f} ms, "
+        f"strong {report['engine_mean_latency_ms']['strong']:.1f} ms; "
+        f"reduction {report['engine_latency_reduction_pct']:+.1f}%.",
         f"[CascadeOne] p95: cascade {report['p95_latency_ms']['cascade']:.1f} ms, "
         f"strong {report['p95_latency_ms']['strong']:.1f} ms; "
         f"ratio {report['p95_ratio']:.2f}."

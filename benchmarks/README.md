@@ -31,10 +31,16 @@ Group launchers reuse the same 19 definitions:
 
 Download original data first using datasets/ source downloaders.
 Selection, conversion and optional deduplication occur only inside
-benchmark processing. The shared engine is benchmarks/runner.py.
+benchmark processing. The shared execution engine is inference/server.py. benchmarks/runner.py is the measurement client.
 An auxiliary single-model strong-alone residency control is exposed
 by runner.py, but is NOT a complete three-arm benchmark.
 
 See EXTERNAL-SOURCES.md and CONFIDENCE-WIDE.md. GPU validation pending.
 
 The smoke suite contains only synthetic bundled integration inputs (3 rows). The source suite contains full n4ze3m train data (not an independent test).
+
+## Timing and backend provenance
+
+The three arms now use the same System One inference HTTP service, including the public cascade execution path. Set CASCADEONE_BENCHMARK_TOKEN (random 16+ characters) in both the inference service and runner; internal benchmark-only baseline endpoints are token-protected. The runner stores client end-to-end latency_ms, server engine_ms (includes backend HTTP), proxy_overhead_ms, fast_ms and strong_ms for each request, plus mean/p95 summaries. This does not measure pure GPU compute time. The cascade JSON pins the declared backend implementation, source revision, software version and execution mode per model; service identity and missing attestations are reported separately.
+
+The manifest labels the new execution path as systemone_inference_proxy_http and records engine version. Legacy timing reports must not be combined with these runs. Re-run performance experiments to establish updated results.

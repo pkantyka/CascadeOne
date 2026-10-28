@@ -6,14 +6,30 @@
     "revision": "1a793eb568e6718f15941d08f85432581df534e3",
     "url": "http://fast:18357",
     "mode": "reference",
-    "orders": 1
+    "orders": 1,
+    "backend": {
+      "implementation": "cascadeone-community-pytorch",
+      "package_version": null,
+      "source_revision": null,
+      "container_image": "cascadeone-community-laya-clef:v0.1",
+      "execution_mode": "reference",
+      "platform": "linux/arm64"
+    }
   },
   "strong": {
     "model_id": "Cloudflare/clef-flash",
     "revision": "17f0b0ad64efb65d273590632833508766b2aae6",
     "url": "http://strong:18357",
     "mode": "reference",
-    "orders": 1
+    "orders": 1,
+    "backend": {
+      "implementation": "cascadeone-community-pytorch",
+      "package_version": null,
+      "source_revision": null,
+      "container_image": "cascadeone-community-laya-clef:v0.1",
+      "execution_mode": "reference",
+      "platform": "linux/arm64"
+    }
   },
   "routing": {
     "type": "confidence_threshold",

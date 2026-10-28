@@ -57,7 +57,10 @@
       "minimum": 1
     },
     "execution": {
-      "const": "single_client_sequential_http"
+      "enum": [
+        "single_client_sequential_http",
+        "systemone_inference_proxy_http"
+      ]
     },
     "models": {
       "type": "object",
@@ -111,6 +114,14 @@
     "normalized_requests_sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "engine_version": {
+      "type": "string",
+      "description": "Present for shared inference proxy runs."
+    },
+    "inference_url": {
+      "type": "string",
+      "description": "Logical HTTP location of the inference proxy used by benchmark."
     }
   }
 }

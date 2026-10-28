@@ -6,6 +6,8 @@ services (fast and strong) must already be listening at the configured URLs.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -106,14 +108,25 @@ def check_prediction(request, result, *, fast):
 
 class Service:
     def __init__(self, cascade_path, benchmark=None, timeout=360,
-                 min_speedup_pct=10.0, max_quality_loss_pp=2.0, max_p95_ratio=1.10):
+                 min_speedup_pct=10.0, max_quality_loss_pp=2.0, max_p95_ratio=1.10,
+                 benchmark_token=None, strong_alone=False):
         path = Path(cascade_path).resolve()
         self.config = json.loads(path.read_text(encoding="utf-8"))
         if self.config.get("schema") != "cascadeone-cascade-v0.1":
             raise ValueError("unsupported cascade schema")
         if timeout <= 0:
             raise ValueError("timeout must be positive")
-        self.cascade = Cascade(self.config)
+        self.config_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+        if benchmark_token is not None and len(benchmark_token) < 16:
+            raise ValueError("benchmark token must contain at least 16 characters")
+        self.benchmark_token = benchmark_token
+        self.strong_alone = strong_alone
+        self.backend_attestations = {}
+        self.engines = {
+            "cascade": Cascade(self.config),
+            "fast_only": Cascade({**self.config, "routing": {"type": "always_fast"}}),
+            "strong_only": Cascade({**self.config, "routing": {"type": "always_strong"}}),
+        }
         self.timeout = timeout
         self.benchmark = None
         if benchmark:
@@ -127,12 +140,21 @@ class Service:
 
     def ensure_backends(self, wait_seconds=600):
         deadline = time.monotonic() + wait_seconds
-        for role in ("fast", "strong"):
+        for role in (("strong",) if self.strong_alone else ("fast", "strong")):
             cfg = self.config[role]
             announced = False
             while True:
                 try:
-                    check_backend(cfg["url"], cfg)
+                    observed = check_backend(cfg["url"], cfg)
+                    self.backend_attestations[role] = {
+                        "declared_backend": cfg.get("backend"),
+                        "observed_model": observed,
+                        "revision_attested": observed.get("revision") == cfg.get("revision"),
+                        "mode_attested": observed.get("mode") == cfg.get("mode"),
+                        "orders_attested": observed.get("orders") == cfg.get("orders"),
+                        "backend_implementation_attested": observed.get("backend") == cfg.get("backend")
+                        if observed.get("backend") is not None else False,
+                    }
                     break
                 except (urllib.error.URLError, TimeoutError, ConnectionError) as err:
                     if time.monotonic() >= deadline:
@@ -142,8 +164,12 @@ class Service:
                         announced = True
                     time.sleep(min(2.0, max(0.0, deadline - time.monotonic())))
 
-    def infer(self, payload):
+    def infer(self, payload, arm="cascade"):
         check_request(payload, self.config["id"])
+        if arm not in self.engines:
+            raise BadRequest("invalid benchmark arm")
+        if self.strong_alone and arm != "strong_only":
+            raise BadRequest("strong-alone service supports strong_only measurements only")
 
         def invoke(url, request, timeout, fast=False):
             # 'model' is the facade's ID, not the backend's model name.
@@ -153,9 +179,16 @@ class Service:
             result = get_json(url.rstrip("/") + "/v1/systemone", forwarded, timeout)
             elapsed = (time.perf_counter_ns() - started) / 1_000_000
             check_prediction(request, result, fast=fast)
+            if arm == "fast_only" and result.get("fast_eligible") is False:
+                raise ValueError("fast_only request is ineligible; cannot substitute strong")
             return result, elapsed
 
-        outcome = self.cascade.execute(payload, self.timeout, invoke)
+        started = time.perf_counter_ns()
+        outcome = self.engines[arm].execute(payload, self.timeout, invoke)
+        outcome.engine_ms = (time.perf_counter_ns() - started) / 1_000_000
+        if arm != "cascade":
+            outcome.route["policy"] = arm
+            outcome.route["reason"] = "baseline"
         return outcome
 
 
@@ -182,13 +215,30 @@ def make_handler(service):
                 self.send_json(200, {"models": [{
                     "name": service.config["id"],
                     "mode": "cascade",
-                    "orders": 1
+                    "orders": 1,
+                    "cascade_config_sha256": service.config_sha256,
+                    "residency": "strong-alone" if service.strong_alone else "colocated",
+                    "backend_attestations": service.backend_attestations
                 }]})
             else:
                 self.send_json(404, {"error": "unknown endpoint"})
 
         def do_POST(self):
-            if self.path.split("?", 1)[0] != "/v1/systemone":
+            path = self.path.split("?", 1)[0]
+            arm = "cascade"
+            if path.startswith("/internal/benchmark/"):
+                if not service.benchmark_token:
+                    self.send_json(404, {"error": "unknown endpoint"})
+                    return
+                token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+                if not hmac.compare_digest(token, service.benchmark_token):
+                    self.send_json(403, {"error": "benchmark authorization required"})
+                    return
+                arm = path.rsplit("/", 1)[-1]
+                if arm not in service.engines:
+                    self.send_json(404, {"error": "unknown benchmark arm"})
+                    return
+            elif path != "/v1/systemone":
                 self.send_json(404, {"error": "unknown endpoint"})
                 return
             try:
@@ -202,13 +252,18 @@ def make_handler(service):
                     payload = json.loads(self.rfile.read(size))
                 except (UnicodeDecodeError, json.JSONDecodeError) as err:
                     raise BadRequest("invalid JSON") from err
-                outcome = service.infer(payload)
+                outcome = service.infer(payload, arm=arm)
                 response = dict(outcome.response)
                 response.pop("fast_eligible", None)
                 self.send_json(200, response, {
                     "X-CascadeOne-Route": outcome.route["reason"],
                     "X-CascadeOne-Escalated": str(outcome.escalated).lower(),
-                    "X-CascadeOne-Policy": outcome.route["policy"]
+                    "X-CascadeOne-Policy": outcome.route["policy"],
+                    "X-CascadeOne-Engine-Ms": f"{outcome.engine_ms:.6f}",
+                    "X-CascadeOne-Fast-Ms": f"{outcome.fast_ms:.6f}",
+                    "X-CascadeOne-Strong-Ms": f"{outcome.strong_ms:.6f}",
+                    "X-CascadeOne-Arm": arm,
+                    "X-CascadeOne-Route-Meta": json.dumps(outcome.route, ensure_ascii=True, separators=(",", ":")),
                 })
             except BadRequest as err:
                 self.send_json(400, {"error": str(err)})
@@ -234,6 +289,8 @@ def main():
     parser.add_argument("--port", type=int, default=18358)
     parser.add_argument("--timeout", type=int, default=360)
     parser.add_argument("--backend-wait", type=int, default=600)
+    parser.add_argument("--strong-alone", action="store_true",
+                        help="only start strong backend; disables public cascade inference")
     parser.add_argument("--min-speedup-pct", type=float, default=10.0)
     parser.add_argument("--max-quality-loss-pp", type=float, default=2.0)
     parser.add_argument("--max-p95-ratio", type=float, default=1.10)
@@ -243,12 +300,17 @@ def main():
     service = Service(args.cascade, benchmark=run, timeout=args.timeout,
                       min_speedup_pct=args.min_speedup_pct,
                       max_quality_loss_pp=args.max_quality_loss_pp,
-                      max_p95_ratio=args.max_p95_ratio)
+                      max_p95_ratio=args.max_p95_ratio,
+                      benchmark_token=os.environ.get("CASCADEONE_BENCHMARK_TOKEN") or None,
+                      strong_alone=args.strong_alone)
     for line in service.startup:
         logging.warning(line) if "[WARN]" in line else logging.info(line)
     if args.backend_wait < 0:
         parser.error("--backend-wait must be non-negative")
     service.ensure_backends(wait_seconds=args.backend_wait)
+    for role, entry in service.backend_attestations.items():
+        if not entry["backend_implementation_attested"]:
+            logging.warning("[CascadeOne][WARN] %s backend identity is declared, not attested", role)
     with ThreadingHTTPServer((args.host, args.port), make_handler(service)) as http:
         logging.info("[CascadeOne] Serving %s on http://%s:%d",
                      service.config["id"], args.host, args.port)

@@ -23,7 +23,6 @@ import urllib.error
 from telemetry import Telemetry
 from adapters import normalize
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'cascades'))
-from runtime import Cascade
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -124,12 +123,32 @@ def load_dataset(path,adapter="typed_decisions_v1",selection=None,with_audit=Fal
     if not rows: raise ValueError("dataset empty")
     return (rows,digest,audit) if with_audit else (rows,digest)
 
-def timed(url,req,timeout,fast=False):
+def timed(url,req,timeout,arm,token):
+    """Measure client HTTP end-to-end plus engine-internal and backend HTTP timings."""
+    if not token or len(token)<16:
+        raise ValueError("CASCADEONE_BENCHMARK_TOKEN (16+ chars) is required")
+    data=json.dumps(req,allow_nan=False).encode("utf-8")
+    target=url.rstrip("/")+"/internal/benchmark/"+arm
+    request=urllib.request.Request(target,data=data,headers={
+        "Content-Type":"application/json","Authorization":"Bearer "+token})
     start=time.perf_counter_ns()
-    result=request_json(url.rstrip("/")+"/v1/systemone",req,timeout)
+    with urllib.request.urlopen(request,timeout=timeout) as res:
+        result=json.loads(res.read())
+        headers=res.headers
     elapsed=(time.perf_counter_ns()-start)/1e6
-    validate_result(req,result,fast=fast)
-    return result,elapsed
+    validate_result(req,result)
+    if headers.get("X-CascadeOne-Arm") != arm:
+        raise ValueError("proxy benchmark arm mismatch")
+    route=json.loads(headers["X-CascadeOne-Route-Meta"])
+    if arm!="cascade" and route.get("policy") != arm:
+        raise ValueError("unexpected baseline policy")
+    if arm!="cascade" and route["escalated"] is not (arm=="strong_only"):
+        raise ValueError("unexpected baseline escalation")
+    values=[float(headers[k]) for k in (
+        "X-CascadeOne-Engine-Ms","X-CascadeOne-Fast-Ms","X-CascadeOne-Strong-Ms")]
+    if any(not math.isfinite(v) or v<0 for v in values):
+        raise ValueError("invalid engine timing")
+    return result,elapsed,*values,route
 
 def get_git():
     try:
@@ -143,11 +162,16 @@ def summarize(rows,phase):
     result={}
     for arm,measure in groups.items():
         lat=[x["latency_ms"] for x in measure]
+        internal=[x["engine_ms"] for x in measure]
+        overhead=[x["proxy_overhead_ms"] for x in measure]
         quality=[x["quality"] for x in measure if x["quality"]]
         exact=[x["quality"]["hard_request_exact"] for x in measure if x["quality"] and x["quality"]["hard_request_exact"] is not None]
         result[arm]={
             "n":len(measure), "unique_requests":len(set(x["id"] for x in measure)),
             "mean_ms":statistics.mean(lat), "p50_ms":percentile(lat,0.5),
+            "engine_mean_ms":statistics.mean(internal), "engine_p95_ms":percentile(internal,0.95),
+            "proxy_overhead_mean_ms":statistics.mean(overhead),
+            "proxy_overhead_p95_ms":percentile(overhead,0.95),
             "p95_ms":percentile(lat,0.95), "p99_ms":percentile(lat,0.99),
             "escalation_rate":sum(x["escalated"] for x in measure)/len(measure),
             "question_expected_accuracy":sum(x["question_expected_accuracy"]*x["questions"] for x in quality)/sum(x["questions"] for x in quality) if len(quality)==len(measure) else None,
@@ -158,6 +182,7 @@ def summarize(rows,phase):
         baseline=result["strong_only"]
         for arm,metric in result.items():
             metric["mean_latency_reduction_vs_strong_only"] = 1-metric["mean_ms"]/baseline["mean_ms"]
+            metric["engine_mean_latency_reduction_vs_strong_only"] = 1-metric["engine_mean_ms"]/baseline["engine_mean_ms"]
             metric["p95_ratio_vs_strong_only"]=metric["p95_ms"]/baseline["p95_ms"]
             if metric["question_expected_accuracy"] is not None and baseline["question_expected_accuracy"] is not None:
                 metric["gold_delta_pp_vs_strong_only"]=100*(metric["question_expected_accuracy"]-baseline["question_expected_accuracy"])
@@ -165,31 +190,29 @@ def summarize(rows,phase):
                 metric["gold_delta_pp_vs_strong_only"]=None
     return result
 
-def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026,dataset_identity=None,adapter="typed_decisions_v1",selection=None,setup_identity=None):
+def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026,dataset_identity=None,adapter="typed_decisions_v1",selection=None,setup_identity=None,inference_url=None,benchmark_token=None):
     config=json.loads(Path(config_path).read_text(encoding="utf-8"))
     if config.get("schema")!="cascadeone-cascade-v0.1": raise ValueError("wrong cascade schema")
-    cascade=Cascade(config)
     if repeats<1 or warmup<0: raise ValueError("invalid repeats/warmup")
+    inference_url=inference_url or os.environ.get("CASCADEONE_INFERENCE_URL","http://inference:18358")
+    token=benchmark_token or os.environ.get("CASCADEONE_BENCHMARK_TOKEN")
+    if not token or len(token)<16:
+        raise ValueError("CASCADEONE_BENCHMARK_TOKEN (16+ chars) is required to measure the shared inference engine")
     selection=selection or {"type":"all"}
     rows,normalized_sha,normalization_audit=load_dataset(dataset_path,adapter,selection,with_audit=True)
     dest=Path(output)
     if dest.exists(): raise FileExistsError("run output already exists")
-    fast_url=config["fast"]["url"]
-    strong_url=config["strong"]["url"]
     if phase not in ("colocated","strong-alone"): raise ValueError("invalid phase")
+    identity=request_json(inference_url.rstrip("/")+"/v1/models",timeout=20)
+    models=identity.get("models",[])
+    if len(models)!=1 or models[0].get("name")!=config["id"] or models[0].get("cascade_config_sha256")!=sha(config_path):
+        raise ValueError("inference service does not match the selected cascade")
+    if models[0].get("residency","colocated")!=phase:
+        raise ValueError("inference residency mode differs from benchmark phase")
     dest.mkdir(parents=True)
     samples=[]
     try:
-        identities={"strong":check_identity(strong_url,config["strong"])}
-        if phase=="colocated":
-            identities["fast"]=check_identity(fast_url,config["fast"])
-        else:
-            try:
-                request_json(fast_url.rstrip("/")+"/health",timeout=3)
-            except (OSError,TimeoutError,urllib.error.URLError):
-                pass
-            else:
-                raise RuntimeError("strong-alone cannot run while fast model server is online")
+        identities={"inference":identity}
         manifest={
             "schema":"cascadeone-run-v0.1","status":"complete",
             "created_utc":utc(),"cascade_id":config["id"],"phase":phase,
@@ -197,12 +220,14 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
             "repeats":repeats,"warmup":warmup,"seed":seed,"routing":config["routing"],
             "models": {"fast":config["fast"],"strong":config["strong"]},
             "http_identity":identities,"code_commit":get_git(),
-            "n_requests":len(rows),"execution":"single_client_sequential_http",
+            "engine_version":"inference-systemone-v1",
+            "inference_url":inference_url,
+            "n_requests":len(rows),"execution":"systemone_inference_proxy_http",
             "dataset_identity":dataset_identity or {"mode":"local_unregistered","id":None,"split":None},
             "benchmark_setup":setup_identity or {"adapter":adapter,"selection":selection},
             "normalized_requests_sha256":normalized_sha,
             "normalization_audit":normalization_audit,
-            "measurement_note":"client wall-clock HTTP; no cached answers; CPU/GPU telemetry host-global",
+            "measurement_note":"latency_ms=client end-to-end HTTP including proxy; engine_ms=inside Cascade.execute including upstream HTTP; proxy_overhead_ms=difference; fast_ms/strong_ms include upstream HTTP; host telemetry is global",
             "gold_coverage":"all" if all(x.get("gold") is not None for x in rows) else "partial_or_none",
             "workload":{"domains":dict(Counter(x.get("domain","unspecified") for x in rows)),
                        "question_types":dict(Counter(q["type"] for x in rows for q in x["request"]["questions"].values())),
@@ -212,9 +237,9 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
         rng=random.Random(seed)
         arms=["strong_only"] if phase=="strong-alone" else ["strong_only","fast_only","cascade"]
         with Telemetry(dest/"telemetry.jsonl") as monitor:
-            for url,fast in ([(strong_url,False)] if phase=="strong-alone" else [(strong_url,False),(fast_url,True)]):
+            for arm in arms:
                 for i in range(warmup):
-                    timed(url,rows[i%len(rows)]["request"],timeout,fast)
+                    timed(inference_url,rows[i%len(rows)]["request"],timeout,arm,token)
             with (dest/"measurements.jsonl").open("x",encoding="utf-8") as stream:
                 for rep in range(repeats):
                     batch=rows[:]
@@ -224,35 +249,17 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
                         rng.shuffle(order)
                         for arm in order:
                             req=case["request"]
-                            started=time.perf_counter_ns()
-                            if arm=="cascade":
-                                outcome=cascade.execute(req,timeout,timed)
-                                selected=outcome.response
-                                route=outcome.route
-                                fast_ms=outcome.fast_ms
-                                strong_ms=outcome.strong_ms
-                                escalated=outcome.escalated
-                            elif arm=="fast_only":
-                                selected,fast_ms=timed(fast_url,req,timeout,True)
-                                if selected.get("fast_eligible") is False:
-                                    raise ValueError("fast_only request ineligible: "+case["id"])
-                                strong_ms=0.0
-                                escalated=False
-                                route={"policy":"fast_only","escalated":False,
-                                       "reason":"baseline","signals":{},
-                                       "fast_executed":True,"strong_executed":False}
-                            else:
-                                selected,strong_ms=timed(strong_url,req,timeout,False)
-                                fast_ms=0.0
-                                escalated=True
-                                route={"policy":"strong_only","escalated":True,
-                                       "reason":"baseline","signals":{},
-                                       "fast_executed":False,"strong_executed":True}
-                            elapsed=(time.perf_counter_ns()-started)/1e6
+                            selected,elapsed,engine_ms,fast_ms,strong_ms,route=timed(
+                                inference_url,req,timeout,arm,token)
+                            escalated=route["escalated"]
+                            if route.get("policy") != (config["routing"]["type"] if arm=="cascade" else arm):
+                                raise ValueError("inference routing policy mismatch")
+                            proxy_overhead_ms=elapsed-engine_ms
                             measure={
                                 "id":case["id"],"repeat":rep,"arm":arm,"escalated":escalated,
                                 "domain":case.get("domain","unspecified"),
                                 "routing":route,"latency_ms":elapsed,
+                                "engine_ms":engine_ms,"proxy_overhead_ms":proxy_overhead_ms,
                                 "fast_ms":fast_ms,"strong_ms":strong_ms,
                                 "quality":score_gold(req,selected,case.get("gold"))
                             }
@@ -263,7 +270,10 @@ def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="co
             "schema":"cascadeone-summary-v0.1","phase":phase,
             "arms":summarize(samples,phase),"telemetry":monitor.summary,
             "by_domain":{d:summarize([v for v in samples if v["domain"]==d],phase) for d in sorted({v["domain"] for v in samples})},
+            "latency_paths":["client_http_end_to_end_ms","engine_internal_ms","proxy_overhead_ms","fast_upstream_http_ms","strong_upstream_http_ms"],
             "limitations":["sequential only","no statistical CI on p95",
+                           "internal engine time includes upstream HTTP, not pure GPU compute",
+                           "proxy overhead is the difference of two observations and may be slightly negative",
                            "host-wide CPU/RAM/GPU telemetry is not per-process"],
         }
         (dest/"environment.json").write_text(json.dumps({
@@ -290,6 +300,7 @@ def main():
     p.add_argument("--repeats",type=int,default=2)
     p.add_argument("--warmup",type=int,default=3)
     p.add_argument("--phase",choices=("colocated","strong-alone"),default="colocated")
+    p.add_argument("--inference-url",default=os.environ.get("CASCADEONE_INFERENCE_URL","http://inference:18358"))
     args=p.parse_args()
     root=Path(__file__).resolve().parents[1]
     identity=None
@@ -327,7 +338,7 @@ def main():
     print(json.dumps(run(cascade,dataset,args.output,args.repeats,args.warmup,
                          phase=args.phase,dataset_identity=identity,
                          adapter=adapter,selection=selection,
-                         setup_identity=setup_identity),indent=2))
+                         setup_identity=setup_identity,inference_url=args.inference_url),indent=2))
 
 
 if __name__=="__main__":

@@ -32,8 +32,10 @@ services:
     gpus: all
     working_dir: /workspace
     profiles: [benchmark]
+    depends_on: [inference]
+    environment: ["CASCADEONE_BENCHMARK_TOKEN"]
     volumes: ["../..:/workspace"]
-    command: [python, benchmarks/runner.py, --setup, benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json, --output, output/laya-smoke]
+    command: [python, benchmarks/runner.py, --inference-url, http://inference:18358, --setup, benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json, --output, output/laya-smoke]
 
   inference:
     image: python:3.12-slim
@@ -42,5 +44,5 @@ services:
     working_dir: /workspace
     volumes: ["../..:/workspace"]
     ports: ["127.0.0.1:18358:18358"]
-    environment: ["CASCADEONE_BENCHMARK_RUN", "PYTHONUNBUFFERED=1"]
+    environment: ["CASCADEONE_BENCHMARK_RUN", "CASCADEONE_BENCHMARK_TOKEN", "PYTHONUNBUFFERED=1"]
     command: [python, inference/server.py, --cascade, cascades/laya-clef/benchmark.json, --host, 0.0.0.0, --port, "18358"]

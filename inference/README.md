@@ -125,3 +125,13 @@ in the historical benchmark. A valid record does not guarantee that
 the deployed facade will achieve the same speedup. Do not draw
 representative conclusions from smoke fixtures, training-source
 data, or host-level telemetry without the corresponding caveats.
+
+## Unified benchmark execution and timing
+
+The benchmark runner uses this same HTTP inference service for `cascade`, `fast_only` and `strong_only`. Baseline variants require a separate benchmark-only endpoint protected by `CASCADEONE_BENCHMARK_TOKEN`; public `/v1/systemone` cannot select a baseline. Use a randomly generated token of at least 16 characters, available to both the inference service and benchmark runner (for example `openssl rand -hex 32`).
+
+Every trial records `latency_ms` (client-measured full HTTP end-to-end), `engine_ms` (server-measured routing plus backend HTTP), `proxy_overhead_ms` (their difference), `fast_ms`, and `strong_ms`. Summaries report mean and p95 for both latency paths. **Engine-internal timing includes model-service HTTP overhead and is not a pure CUDA or neural network forward-pass timer.** GPU-only timing requires opt-in, backend-specific instrumentation with CUDA synchronization; it is not collected by this reference proxy.
+
+`--strong-alone` starts a special single-backend service to preserve model-residency controls, and accepts only `strong_only` runs. Legacy benchmark reports remain historical artifacts, but cannot be used as evidence for the new proxy startup comparison. Re-run benchmarks after migration.
+
+The cascade definition now records declared backend implementation, package version when known, source revision, container image tag, execution mode and platform for each model. The benchmark manifest retains these fields and the service reports observed identity fields separately. Image tags are not immutable digests; availability of runtime attestation depends on the upstream model server.

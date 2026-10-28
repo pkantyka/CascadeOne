@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 
 REQUIRED=("manifest.json","environment.json","measurements.jsonl","telemetry.jsonl","summary.json","SHA256SUMS")
@@ -34,6 +35,25 @@ def validate(root):
     if arms!=({"strong_only"} if phase=="strong-alone" else {"strong_only","fast_only","cascade"}):
         raise ValueError("missing benchmark arms")
     trials=[json.loads(x) for x in (root/"measurements.jsonl").read_text().splitlines()]
+    if manifest.get("execution") == "systemone_inference_proxy_http":
+        if manifest.get("engine_version") != "inference-systemone-v1":
+            raise ValueError("missing shared inference engine version")
+        for arm in arms:
+            metrics = summary["arms"][arm]
+            for key in ("mean_ms", "p95_ms", "engine_mean_ms", "engine_p95_ms",
+                        "proxy_overhead_mean_ms", "proxy_overhead_p95_ms"):
+                value = metrics.get(key)
+                if type(value) not in (int, float) or not math.isfinite(value):
+                    raise ValueError("missing or invalid dual latency summary: " + key)
+        for trial in trials:
+            for key in ("latency_ms", "engine_ms", "proxy_overhead_ms", "fast_ms", "strong_ms"):
+                value = trial.get(key)
+                if type(value) not in (int, float) or not math.isfinite(value):
+                    raise ValueError("missing or invalid dual latency trial: " + key)
+            if min(trial["latency_ms"], trial["engine_ms"]) <= 0 or min(trial["fast_ms"],trial["strong_ms"]) < 0:
+                raise ValueError("invalid nonpositive latency")
+            if abs(trial["proxy_overhead_ms"] - (trial["latency_ms"] - trial["engine_ms"])) > 1e-6:
+                raise ValueError("invalid proxy overhead decomposition")
     expected=manifest["n_requests"]*manifest["repeats"]*len(arms)
     if len(trials)!=expected: raise ValueError("missing measurements")
     keys={(r["id"],r["repeat"],r["arm"]) for r in trials}
