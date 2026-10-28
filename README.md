@@ -1,12 +1,20 @@
 # CascadeOne
 
-**CascadeOne** is a system of System One decision models arranged in a cascade, designed to optimize resource utilization and reduce response latency compared to a standalone strong model (the higher-capability fallback), while minimizing the loss of decision quality (the performance–quality trade-off).
+**CascadeOne** is a setup of System One decision models arranged in a cascade, designed to optimize resource utilization and reduce response latency compared to a standalone strong model (the higher-capability fallback), while minimizing the loss of decision quality (the performance–quality trade-off).
 
 This is achieved through an appropriate inference engine or architectural modifications, such as introducing a router or an additional decision head.
 
 The core concept is to reduce the average number of calls to the strong System One model during system inference. Depending on the configured routing policy, a request may be handled by the fast model or escalated to the strong model. Escalation can occur before or after the fast model runs.
 
 The term *cascade* refers to conditional escalation: requests that the routing policy considers unsuitable for the fast path are directed to the strong model, either before the fast model runs or after its response is evaluated.
+
+## Quick start
+
+**Benchmark** runs the `fast_only`, `strong_only` and `cascade` paths through the shared inference engine to compare decision quality, latency and escalation.
+
+**Inference** serves the chosen cascade as a single System One model over HTTP, routing requests to the fast or strong model as needed.
+
+See [Main usage modes](#main-usage-modes) for commands, prerequisites and detailed instructions.
 
 ## Repository
 
