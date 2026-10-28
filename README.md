@@ -47,6 +47,7 @@ flowchart TD
 
 - **Two reference cascades:** [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md), with versioned model configurations and Docker Compose definitions.
 - **A policy-driven cascade runtime:** [cascades/runtime.py](cascades/runtime.py) and [cascades/policies.py](cascades/policies.py).
+- **Local inference API:** [inference/](inference/README.md) serves a configured cascade through one System One endpoint, with validated benchmark-based startup warnings.
 - **A source dataset registry:** [datasets/](datasets/README.md) acquires immutable, pinned source files and verifies SHA-256. It does not silently filter, split or transform them.
 - **Reproducible benchmarks:** [benchmarks/](benchmarks/README.md) defines the dataset and selection, model pair, routing strategy and source-to-request adapter for each experiment.
 - **Measurements and validation:** the benchmark runner records quality, latency, escalation, environment and provenance; [tools/validate_result.py](tools/validate_result.py) validates generated run artifacts.
@@ -54,6 +55,27 @@ flowchart TD
 Each named benchmark compares **three arms on the same requests**: `fast_only` (small model), `strong_only` (large model), and `cascade` (small model plus routing and optional fallback). This comparison is essential: the percentage handled by the fast model alone is not a measure of acceleration or decision quality.
 
 The dataset is independent of its benchmark. Normalization, Gold interpretation and selection belong to the benchmark configuration. Offline dataset preparation is recorded but excluded from timed per-request inference; runtime preprocessing, routing and fallback overhead are measured.
+
+## Local inference API
+
+CascadeOne can serve a complete cascade as **one logical System One model**
+without changing its underlying fast/strong backends. The host-local facade
+exposes `POST /v1/systemone`, `GET /v1/models`, and `GET /health`.
+
+```bash
+docker compose -f cascades/laya-clef/compose.yaml --profile inference up --build fast strong inference
+```
+
+The endpoint is available at `http://127.0.0.1:18358`. Use the Basal
+Pico/Ultra Compose file to serve that cascade instead. When a completed,
+**matching, validated** benchmark run is supplied, startup logs show mean
+latency reduction, p95 ratio and Gold quality difference against
+`strong_only`, with configurable warnings for insufficient acceleration
+or excessive quality loss. Without suitable evidence, the server explicitly
+reports that these differences are **unknown**, rather than inventing values.
+
+See [inference/README.md](inference/README.md) for API examples, benchmark
+selection, alert thresholds, deployment constraints and caveats.
 
 ## Quick start
 

@@ -24,3 +24,13 @@ Run a genuine benchmark with another unique output path and frozen dataset. The 
 Do not submit smoke results as real quality benchmarks.
 
 The confidence threshold is defined by the cascade profile, not the benchmark runner. Only the policies implemented in cascades/policies.py are available. The strong-only baseline measures the configured Clef HTTP service; compare latency and quality only under matching workload and hardware conditions.
+
+## Serve the complete cascade through one API
+
+The optional Docker Compose `inference` profile provides a host-local System One endpoint on `127.0.0.1:18358`. Start fast, strong and inference together:
+
+```bash
+docker compose -f cascades/laya-clef/compose.yaml --profile inference up --build fast strong inference
+```
+
+See [local inference](../../inference/README.md) for the API, validated benchmark startup comparisons and alert limits.

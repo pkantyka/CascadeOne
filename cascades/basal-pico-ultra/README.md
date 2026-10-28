@@ -20,3 +20,13 @@ The configured confidence threshold is 0.6563522219657898. It is frozen for thes
 To assess memory residency, first run strong-only with Pico stopped using --phase strong-alone, then run both servers and the colocated phase. Output paths must differ. Compare with tools/compare_runs.py. The runner supports simple hard-label and categorical-distribution Gold; more complex Gold schemas require a separately validated adapter.
 
 Performance and decision quality depend on the model revisions, workload and hardware. Benchmark this exact configuration before drawing conclusions.
+
+## Serve the complete cascade through one API
+
+The optional Docker Compose `inference` profile provides a host-local System One endpoint on `127.0.0.1:18358`. Start fast, strong and inference together:
+
+```bash
+docker compose -f cascades/basal-pico-ultra/compose.yaml --profile inference up --build fast strong inference
+```
+
+See [local inference](../../inference/README.md) for the API, validated benchmark startup comparisons and alert limits.

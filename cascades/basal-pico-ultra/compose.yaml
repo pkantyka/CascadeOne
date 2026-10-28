@@ -45,3 +45,13 @@ services:
     profiles: [benchmark]
     volumes: ["../..:/workspace"]
     command: [python, benchmarks/runner.py, --setup, benchmarks/smoke-general__basal-pico-ultra__confidence-min-t0p656352/benchmark.json, --output, output/pico-smoke]
+
+  inference:
+    image: python:3.12-slim
+    profiles: [inference]
+    depends_on: [fast, strong]
+    working_dir: /workspace
+    volumes: ["../..:/workspace"]
+    ports: ["127.0.0.1:18358:18358"]
+    environment: ["CASCADEONE_BENCHMARK_RUN", "PYTHONUNBUFFERED=1"]
+    command: [python, inference/server.py, --cascade, cascades/basal-pico-ultra/benchmark.json, --host, 0.0.0.0, --port, "18358"]
