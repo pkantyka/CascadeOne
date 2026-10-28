@@ -62,13 +62,25 @@ python benchmarks/run_confidence_wide.py --suite source --dry-run
 ~~~
 
 These commands validate configurations and available data only; a
-`--dry-run` never establishes model speed or quality. For the wide and
-external datasets, download the pinned sources first using
-[dataset acquisition](../datasets/README.md). The historical
-`run_confidence_wide.sh` and `run_confidence_external.sh` helpers have
-**not yet been updated for the token-protected inference path**; use
-the documented Compose procedure instead of treating them as current
-end-to-end launch commands.
+`--dry-run` never establishes model speed or quality. For the Basal
+Pico → Ultra suites, the ready-to-run shell launchers download and
+verify sources, run a dry-run **before starting GPU models**, start
+the shared inference service and then run the benchmarks:
+
+~~~bash
+sh benchmarks/run_confidence_wide.sh
+sh benchmarks/run_confidence_external.sh
+~~~
+
+Run them **separately**, from the repository root on compatible GPU
+hardware. Each accepts an optional, unique output-root path as its first
+argument, for example `sh benchmarks/run_confidence_wide.sh output/my-wide-run`.
+By default the launchers create timestamped output paths. They generate
+a random benchmark token using `openssl` unless
+`CASCADEONE_BENCHMARK_TOKEN` is already set. This token is not written
+to the repository. The running model services are left up for reuse.
+See [dataset acquisition](../datasets/README.md) for source licenses
+and download requirements.
 
 ## Two timing paths and backend provenance
 

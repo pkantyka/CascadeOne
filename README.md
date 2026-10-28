@@ -107,6 +107,11 @@ Pico → Ultra. See [benchmark setup and execution](benchmarks/README.md)
 for dataset acquisition, benchmark suites and methodology. Use a
 **new output directory** for each measurement.
 
+For complete Basal Pico → Ultra suites, the launchers
+`sh benchmarks/run_confidence_wide.sh` and
+`sh benchmarks/run_confidence_external.sh` automate data preparation,
+the shared inference service and three-arm measurements.
+
 ### 2. Inference — serve a cascade as one model
 
 The inference service exposes **one System One API**. Applications do not

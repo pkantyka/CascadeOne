@@ -25,15 +25,21 @@ Examples:
     python benchmarks/banking77-test__basal-pico-ultra__confidence-min-t0p656352/run.py --dry-run
     python benchmarks/clinc150-plus-test__basal-pico-ultra__confidence-min-t0p656352/run.py --dry-run
 
-To run all external benchmarks on a compatible GPU host, first
-start the Pico → Ultra inference stack with
-`CASCADEONE_BENCHMARK_TOKEN` as described in the
-[benchmark guide](README.md). Then use its Compose benchmark service:
+To run all external benchmarks on a compatible GPU host, use
+the updated launcher from the repository root:
 
-    docker compose -f cascades/basal-pico-ultra/compose.yaml --profile inference --profile benchmark run --rm benchmark python benchmarks/run_confidence_wide.py --suite external --output-root output/unique-external-run --repeats 2
+    sh benchmarks/run_confidence_external.sh
 
-The older `run_confidence_external.sh` helper has not yet been updated
-for the token-protected inference service and is not a current runbook.
+Optionally pass a unique output root:
+
+    sh benchmarks/run_confidence_external.sh output/my-external-run
+
+The launcher downloads and verifies original sources, performs the
+dry-run before starting GPU models, then starts fast, strong and the
+shared inference service and executes all three-arm benchmarks. It
+generates a random benchmark token using `openssl` unless
+`CASCADEONE_BENCHMARK_TOKEN` is supplied. See the
+[benchmark guide](README.md) for manual execution.
 
 All eleven better-jev-bench held-out JSONL files are downloadable.
 Three are multimodal (Atari Head, OS-Atlas, ScreenSpot v2), and their

@@ -19,14 +19,20 @@ These are within-family upstream train datasets, not independent OOD.
     python datasets/download_wide.py
     python benchmarks/run_confidence_wide.py --suite wide --dry-run
 
-To perform a **live** run, first start the Pico → Ultra inference stack
-with `CASCADEONE_BENCHMARK_TOKEN` as described in the
-[benchmark guide](README.md). Then run the suite in its Compose
-benchmark container:
+To perform a **live** run, use the updated launcher from the
+repository root on a compatible GPU host:
 
-    docker compose -f cascades/basal-pico-ultra/compose.yaml --profile inference --profile benchmark run --rm benchmark python benchmarks/run_confidence_wide.py --suite wide --output-root output/unique-wide-run --repeats 2
+    sh benchmarks/run_confidence_wide.sh
 
-The older `run_confidence_wide.sh` helper does not yet supply the
-token-enabled inference service and is not a current runbook.
+Optionally pass a unique output root:
+
+    sh benchmarks/run_confidence_wide.sh output/my-wide-run
+
+The launcher builds the benchmark image, downloads and verifies the
+dataset, performs a dry-run without starting GPU models, then starts
+fast, strong and the shared inference service before executing the
+three-arm suite. It generates a benchmark token using `openssl`
+unless `CASCADEONE_BENCHMARK_TOKEN` is already set. See the
+[benchmark guide](README.md) for the equivalent manual commands.
 
 Each benchmark records the three arms with paired uncertainty estimates.
