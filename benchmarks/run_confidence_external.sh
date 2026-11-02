@@ -31,7 +31,7 @@ docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --
 docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark python benchmarks/run_confidence_wide.py --suite external --dry-run
 
 # Bring up the SAME inference service used by applications and benchmarks.
-docker compose -f "$COMPOSE" --profile inference up -d --build fast strong inference
+docker compose -f "$COMPOSE" --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
 docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark python benchmarks/wait_models.py --inference-url http://inference:18358
 docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark python benchmarks/run_confidence_wide.py --suite external --output-root "$DEST" --repeats 2
 echo "Completed benchmark suite in $DEST"

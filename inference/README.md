@@ -8,11 +8,11 @@ arms through this engine; **Inference** exposes the cascade as one model.
 
 ## Start
 
-Both reference cascades have an optional Compose `inference` profile.
+Both reference cascades have an optional Compose `inference` profile. Follow the [Laya → Clef](../cascades/laya-clef/README.md) or [Basal Pico → Ultra](../cascades/basal-pico-ultra/README.md) guide for complete start-to-finish commands. Laya defaults to the NVIDIA `nvcr.io/nvidia/vllm:26.07-py3` base image, so `CASCADEONE_CUDA_BASE` is not required for a basic start; an immutable digest can be supplied separately for reproducible runs.
 From the repository root on a compatible NVIDIA ARM64 GPU machine:
 
 ```bash
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up --build fast strong inference
+docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
 ```
 
 For Pico/Ultra use `cascades/basal-pico-ultra/compose.yaml` instead.
@@ -78,7 +78,7 @@ same filesystem visible to the inference service. In Compose, set
 
 ```bash
 CASCADEONE_BENCHMARK_RUN=output/benchmarks/MY-VERIFIED-RUN \
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up --build fast strong inference
+docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
 ```
 
 Or outside Compose:

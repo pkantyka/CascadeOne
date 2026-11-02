@@ -1,4 +1,4 @@
-ARG CUDA_BASE
+ARG CUDA_BASE=nvcr.io/nvidia/vllm:26.07-py3
 FROM ${CUDA_BASE}
 
 ARG TARGETARCH

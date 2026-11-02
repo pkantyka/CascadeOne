@@ -10,11 +10,12 @@ The term *cascade* refers to conditional escalation: requests that the routing p
 
 ## Quick start
 
-**Benchmark** runs the `fast_only`, `strong_only` and `cascade` paths through the shared inference engine to compare decision quality, latency and escalation.
+Choose a cascade: **[Laya → Clef](cascades/laya-clef/README.md)** or **[Basal Pico → Ultra](cascades/basal-pico-ultra/README.md)**. Each guide contains full copy-and-run instructions for two modes on a compatible NVIDIA ARM64 GPU host:
 
-**Inference** serves the chosen cascade as a single System One model over HTTP, routing requests to the fast or strong model as needed.
+- **Benchmark:** compare `fast_only`, `strong_only` and `cascade` on the same dataset (smoke and held-out evaluation examples).
+- **Inference:** expose the cascade as one System One API and send a decision request to `POST /v1/systemone`.
 
-See [Main usage modes](#main-usage-modes) for commands, prerequisites and detailed instructions.
+Run commands from the **`dist/CascadeOne-Community` repository root**. No manual CUDA image variable is required for the Laya quickstart: its Compose file has a default NVIDIA base-image tag. See [Main usage modes](#main-usage-modes) and the selected cascade guide for prerequisites and details.
 
 ## Repository
 
@@ -68,78 +69,19 @@ Model identity alone is not a complete execution profile: cascade definitions pi
 
 ## Main usage modes
 
-CascadeOne has **two main usage modes**. Both use the same inference engine
-and the same cascade definition (`cascades/<pair>/benchmark.json`).
+Both modes use the **same cascade configuration and inference engine**. Datasets are model-independent; a benchmark setup combines a dataset, adapter and cascade.
 
-| Mode | Purpose | Entry point |
-| --- | --- | --- |
-| **Benchmark** | Measure decision quality, latency and escalation against `fast_only` and `strong_only` on identical requests. | [Benchmark framework](benchmarks/README.md) |
-| **Inference** | Serve a selected cascade as **one logical System One model** for applications. | [Local inference API](inference/README.md) |
+### 1. Benchmark
 
-### 1. Benchmark — evaluate a cascade
+The runner makes three comparable HTTP measurements through the shared inference engine: `fast_only`, `strong_only` and `cascade`. It records client end-to-end latency, engine-internal latency, decision quality when Gold is available, and escalation. The small synthetic smoke dataset provides real diagnostic measurements; broader held-out evaluation is needed to assess representative performance. Negative results are valid findings.
 
-Each named benchmark executes **three arms** through the shared inference
-service: `fast_only` (fast model only), `strong_only` (strong model only)
-and `cascade` (conditional execution). It reports both client-observed
-**end-to-end HTTP latency** and **engine-internal latency**, as well as
-per-backend HTTP time, Gold-based quality where available, and escalation.
-The engine-internal time includes backend HTTP communication; it is
-**not** a pure GPU compute measurement.
+**Complete start-to-finish instructions:** [Laya → Clef benchmark](cascades/laya-clef/README.md#1-benchmark) or [Basal Pico → Ultra benchmark](cascades/basal-pico-ultra/README.md#1-benchmark). For methodology, see [Benchmark framework](benchmarks/README.md).
 
-For a live Laya → Clef smoke run, start from the repository root on a
-compatible NVIDIA ARM64 GPU host. Set `CASCADEONE_CUDA_BASE` to a verified
-compatible image digest as described in the
-[Laya → Clef setup](cascades/laya-clef/README.md).
+### 2. Inference
 
-~~~bash
-export CASCADEONE_BENCHMARK_TOKEN="$(openssl rand -hex 32)"
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build fast strong inference
-docker compose -f cascades/laya-clef/compose.yaml --profile inference --profile benchmark run --rm benchmark \
-  python benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/run.py --repeats 2
-python tools/validate_result.py output/benchmarks/smoke-general__laya-clef__confidence-min-t0p900000
-~~~
+The inference service exposes one HTTP System One model. Routing selects the fast model or escalates to the strong model; clients receive one decision response. The public endpoints are `POST /v1/systemone`, `GET /v1/models` and `GET /health`. When startup has no validated matching benchmark report, speedup and quality differences are explicitly reported as unknown.
 
-The token is used by the benchmark client and the inference service;
-it protects benchmark-only execution modes. **Do not commit it.** This
-smoke benchmark verifies integration, not real-world model performance.
-Use the other cascade's Compose file and a matching benchmark setup for
-Pico → Ultra. See [benchmark setup and execution](benchmarks/README.md)
-for dataset acquisition, benchmark suites and methodology. Use a
-**new output directory** for each measurement.
-
-For complete Basal Pico → Ultra suites, the launchers
-`sh benchmarks/run_confidence_wide.sh` and
-`sh benchmarks/run_confidence_external.sh` automate data preparation,
-the shared inference service and three-arm measurements.
-
-### 2. Inference — serve a cascade as one model
-
-The inference service exposes **one System One API**. Applications do not
-need to know whether the fast model answered or the request escalated to
-the strong model. Start the selected cascade from the repository root:
-
-~~~bash
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build fast strong inference
-curl http://127.0.0.1:18358/v1/models
-~~~
-
-Send decisions to `POST http://127.0.0.1:18358/v1/systemone`; the service
-also provides `GET /health`. The API retains the standard System One
-response structure; optional response headers report the route.
-See the [request example and API contract](inference/README.md).
-
-At startup, when given a **matching, validated benchmark from the new
-shared inference path**, the service displays the cascade's measured
-mean latency improvement, internal-engine comparison, p95 and Gold-quality
-difference against `strong_only`. It warns when the cascade is not
-meaningfully faster or loses too much quality. Without such a benchmark,
-the differences are explicitly **unknown**; no performance claim is made.
-The optional run is selected with `CASCADEONE_BENCHMARK_RUN` or
-`--benchmark` (see [startup comparisons](inference/README.md)).
-
-Both reference deployments require backend model services and compatible
-GPU hardware. The Compose configuration binds the public API to
-`127.0.0.1:18358` only; the reference API has no authentication or TLS.
+**Complete start-to-finish instructions with a decision API example:** [Laya → Clef inference](cascades/laya-clef/README.md#2-inference-service) or [Basal Pico → Ultra inference](cascades/basal-pico-ultra/README.md#2-inference-service). See [Inference API](inference/README.md) for details.
 
 ## Local checks (no GPU needed)
 

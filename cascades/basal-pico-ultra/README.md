@@ -1,95 +1,101 @@
-# Basal Omni Pico → Ultra (reference cascade)
+# Basal Pico → Ultra
 
-**Basal Pico (fast model)** and **Basal Ultra (strong model)** run as separately pinned HTTP backends. Pico uses `basal-serve` 2.3.2 and Ultra uses 2.1.0, both in `eager` mode. Do not silently upgrade either backend or its pinned model revision. The confidence threshold **0.6563522219657898** is frozen for the reference setup, not tuned on evaluation data.
+Cascade: **Basal Pico (fast model) → Basal Ultra (strong model)**, confidence routing at **0.6563522219657898**. The pinned model backends use `basal-serve` 2.3.2 (Pico) and 2.1.0 (Ultra), both in `eager` mode.
 
-## Requirements
+## Before you start
 
-An NVIDIA ARM64 GPU host with Docker Compose GPU support, a compatible NGC vLLM 26.07 / PyTorch–CUDA environment, access to the pinned Hugging Face snapshots and sufficient GPU RAM for both models concurrently. The experimental Dockerfiles currently use an image tag rather than an immutable base digest; this stack is **not yet release-qualified**. GPU validation remains pending.
+Run all commands **from the `dist/CascadeOne-Community` repository root** (containing `cascades/` and `benchmarks/`).
 
-Run all examples from the **Community repository root**. Benchmark and Inference use the **same cascade definition and inference engine**. Datasets are reusable independently of the models; a benchmark setup selects the dataset, adapter and cascade.
+You need an **ARM64 NVIDIA GPU host** (such as DGX Spark), Docker Compose v2 with GPU access and `--wait` support, `curl` and `openssl`, enough VRAM for both models and access to their pinned Hugging Face snapshots. Dockerfiles use the default NVIDIA image `nvcr.io/nvidia/vllm:26.07-py3`. This image is referenced by tag rather than immutable digest; exact environment reproduction and end-to-end GPU execution still require validation.
 
-## Benchmark mode
+## 1. Benchmark
 
-Start the shared inference service with a benchmark token. The token enables the internal baseline endpoints (`fast_only` and `strong_only`); ordinary public inference does not require it.
+The benchmark uses the **same inference engine** as the public API for `fast_only`, `strong_only` and `cascade`. The random token enables benchmark-only endpoints.
 
 ~~~bash
 export CASCADEONE_BENCHMARK_TOKEN="$(openssl rand -hex 32)"
 COMPOSE=cascades/basal-pico-ultra/compose.yaml
-docker compose -f "$COMPOSE" --profile inference up -d --build fast strong inference
+docker compose -f "$COMPOSE" --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
+docker compose -f "$COMPOSE" --profile inference logs --tail=30 inference
 ~~~
 
-The following benchmark commands execute Python **inside the Compose benchmark container**. Results are saved under the ignored `output/` directory, using a fresh directory for every run.
-
-### A. Smoke benchmark
-
-The bundled `smoke-general-v1` contains **three synthetic decision requests**. Its actual latency, quality and routing measurements are useful for diagnosing behavior on those inputs, not for generalizing to an unseen workload.
+### Smoke — three synthetic decisions
 
 ~~~bash
-SMOKE_OUT="output/benchmarks/basal-pico-ultra-smoke-$(date -u +%Y%m%dT%H%M%SZ)"
+OUT="output/basal-smoke-$(date -u +%Y%m%dT%H%M%SZ)"
 docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
   python benchmarks/runner.py \
-    --setup benchmarks/smoke-general__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
-    --output "$SMOKE_OUT" --repeats 2
+  --setup benchmarks/smoke-general__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
+  --output "$OUT" --repeats 2
+
 docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
-  python tools/validate_result.py "$SMOKE_OUT"
+  python tools/validate_result.py "$OUT"
 ~~~
 
-### B. Evaluation benchmark
+Smoke reports actual timing and quality for **three synthetic cases**; it is not a representative performance estimate.
 
-Use the **same model-independent Civil Comments held-out dataset** as in the Laya → Clef evaluation example. The existing **named Basal benchmark setup** links that dataset, its `better_jev_heldout_gold_v1` adapter and the Pico → Ultra cascade. All 4,000 Gold-scored rows are included.
+### Evaluation — a pinned held-out dataset
+
+The `bjb-civil-comments-heldout-v1` dataset is **independent of models** and is used in both cascade guides. Basal already has a named benchmark setup combining this source, its adapter and the Pico → Ultra cascade. It normalizes 4,000 Gold-scored requests.
+
+With the benchmark stack above running:
 
 ~~~bash
 docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
   python datasets/catalog.py acquire bjb-civil-comments-heldout-v1
-docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
-  python datasets/catalog.py verify bjb-civil-comments-heldout-v1
 
-EVAL_OUT="output/benchmarks/basal-pico-ultra-civil-comments-$(date -u +%Y%m%dT%H%M%SZ)"
+OUT="output/basal-eval-$(date -u +%Y%m%dT%H%M%SZ)"
 docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
   python benchmarks/runner.py \
-    --setup benchmarks/better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
-    --output "$EVAL_OUT" --repeats 2
+  --setup benchmarks/better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
+  --output "$OUT" --repeats 2
+
 docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
-  python tools/validate_result.py "$EVAL_OUT"
+  python tools/validate_result.py "$OUT"
 ~~~
 
-For the **full external evaluation suite**, including the other pinned test and held-out sources, run the maintained launcher **instead of** the single-dataset commands:
+To run **all** available external evaluation setups, use the complete launcher *instead of* the single-dataset commands:
 
 ~~~bash
 sh benchmarks/run_confidence_external.sh
 ~~~
 
-The launcher downloads and checks the sources, dry-runs their adapters, starts both backends and the shared inference service, and records all three benchmark arms. These are measured results, which may demonstrate that the cascade is **slower or less accurate** than `strong_only`. Held-out source labels alone do not guarantee absence of model pretraining overlap. The standard three-arm comparison measures with both model backends resident; `strong-alone` requires a separate deployment. See the [benchmark guide](../../benchmarks/README.md).
+The measured result may be **negative**: a cascade can be slower than the strong model or lose too much quality. Public held-out sources can overlap unknown model pretraining. Both model backends remain resident during the three-arm comparison; a strong-alone experiment needs a different deployment.
 
-## Inference mode
+## 2. Inference service
 
-Expose the Pico → Ultra cascade as **one System One model**. A benchmark token is not needed for standard public API calls.
+To serve the cascade as a **single System One model**, no benchmark token is needed:
 
 ~~~bash
 COMPOSE=cascades/basal-pico-ultra/compose.yaml
-docker compose -f "$COMPOSE" --profile inference up -d --build fast strong inference
-curl http://127.0.0.1:18358/v1/models
+docker compose -f "$COMPOSE" --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
+curl -f http://127.0.0.1:18358/health
 ~~~
 
-For example, ask the model to **make a decision under a stated return policy**:
+Ask the API for a decision:
 
 ~~~bash
 curl -i -sS http://127.0.0.1:18358/v1/systemone \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "basal-pico-ultra-h1",
-    "state": "A customer purchased an unopened item yesterday. Store policy allows refunds of unopened items within 14 days.",
+    "state": "An unopened product was purchased yesterday. Refunds are allowed within 14 days.",
     "questions": {
       "refund": {
         "type": "choice",
-        "instructions": "Decide whether to approve the refund under the stated policy.",
-        "criteria": {
-          "approve": "Approve the refund",
-          "reject": "Reject the refund"
-        }
+        "instructions": "Should the refund be approved under the policy?",
+        "criteria": {"approve": "Approve refund", "reject": "Reject refund"}
       }
     }
   }'
 ~~~
 
-The response has an `answers.refund.probabilities` distribution; inspect `X-CascadeOne-Escalated` to see whether Ultra was invoked. The API exposes model predictions, not a guarantee of the expected policy decision. The two reference Compose projects both bind host port `127.0.0.1:18358`, so run them separately or change one port mapping. See [inference documentation](../../inference/README.md) for benchmark-based startup warnings, HTTP headers and security limitations.
+The response includes `answers.refund.probabilities`. Header `X-CascadeOne-Escalated` shows whether Ultra was invoked. Startup warnings show speed/quality as **unknown** until a matching benchmark is supplied (see [Inference API](../../inference/README.md)).
+
+To stop the services:
+
+~~~bash
+docker compose -f "$COMPOSE" --profile inference down
+~~~
+
+Run **one reference Compose project at a time**: both expose host port `127.0.0.1:18358`. See [benchmark methodology](../../benchmarks/README.md) for metric definitions and provenance.

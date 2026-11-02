@@ -61,7 +61,7 @@ class ScriptTests(unittest.TestCase):
                 self.assertIn("--no-deps benchmark python datasets/" + source, calls[1])
                 self.assertIn("--verify", calls[2])
                 self.assertIn("--suite " + suite + " --dry-run", calls[3])
-                self.assertIn("up -d --build fast strong inference", calls[4])
+                self.assertIn("up -d --build --wait --wait-timeout 660 fast strong inference", calls[4])
                 self.assertIn("benchmarks/wait_models.py --inference-url http://inference:18358", calls[5])
                 self.assertIn("--suite " + suite + " --output-root", calls[6])
                 self.assertIn("--no-deps benchmark", calls[6])
@@ -145,3 +145,19 @@ class ReadinessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ComposeQuickstartTests(unittest.TestCase):
+    def test_laya_cuda_image_has_nonempty_default(self):
+        compose = (ROOT / "cascades/laya-clef/compose.yaml").read_text()
+        dockerfile = (ROOT / "cascades/laya-clef/Dockerfile").read_text()
+        self.assertIn("${CASCADEONE_CUDA_BASE:-nvcr.io/nvidia/vllm:26.07-py3}", compose)
+        self.assertIn("ARG CUDA_BASE=nvcr.io/nvidia/vllm:26.07-py3", dockerfile)
+        self.assertNotIn("CASCADEONE_CUDA_BASE:?", compose)
+
+    def test_both_inference_services_have_healthchecks(self):
+        for cascade in ("laya-clef", "basal-pico-ultra"):
+            compose = (ROOT / "cascades" / cascade / "compose.yaml").read_text()
+            with self.subTest(cascade=cascade):
+                self.assertIn("    healthcheck:", compose)
+                self.assertIn("/health", compose)

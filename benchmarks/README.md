@@ -37,12 +37,11 @@ example using the same held-out source.
 
 From the repository root on a compatible NVIDIA ARM64 GPU host, use the
 chosen cascade's Docker Compose file and a named matching benchmark.
-For Laya → Clef, first configure a verified `CASCADEONE_CUDA_BASE`
-as described in [the cascade guide](../cascades/laya-clef/README.md).
+For Laya → Clef, the Compose file supplies a default NVIDIA CUDA/PyTorch image; `CASCADEONE_CUDA_BASE` is optional for pinning a verified digest. See [the complete Laya guide](../cascades/laya-clef/README.md) and [the Basal guide](../cascades/basal-pico-ultra/README.md) for prerequisites, both benchmark modes and inference examples.
 
 ~~~bash
 export CASCADEONE_BENCHMARK_TOKEN="$(openssl rand -hex 32)"
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build fast strong inference
+docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
 docker compose -f cascades/laya-clef/compose.yaml --profile inference --profile benchmark run --rm benchmark \
   python benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/run.py --repeats 2
 python tools/validate_result.py output/benchmarks/smoke-general__laya-clef__confidence-min-t0p900000

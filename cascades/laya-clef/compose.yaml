@@ -5,7 +5,7 @@ x-common: &common
     context: ../..
     dockerfile: cascades/laya-clef/Dockerfile
     args:
-      CUDA_BASE: "${CASCADEONE_CUDA_BASE:?Provide a pinned ARM64 NVIDIA CUDA image digest}"
+      CUDA_BASE: "${CASCADEONE_CUDA_BASE:-nvcr.io/nvidia/vllm:26.07-py3}"
   image: cascadeone-community-laya-clef:v0.1
   working_dir: /workspace
   gpus: all
@@ -46,3 +46,9 @@ services:
     ports: ["127.0.0.1:18358:18358"]
     environment: ["CASCADEONE_BENCHMARK_RUN", "CASCADEONE_BENCHMARK_TOKEN", "PYTHONUNBUFFERED=1"]
     command: [python, inference/server.py, --cascade, cascades/laya-clef/benchmark.json, --host, 0.0.0.0, --port, "18358"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18358/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 120
