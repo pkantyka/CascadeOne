@@ -24,6 +24,15 @@ Dataset download and checksum verification belong in `datasets/`;
 selection, conversion, normalization and Gold interpretation belong
 to the benchmark setup, not the runtime.
 
+**Datasets are model-independent.** The same pinned source can be evaluated
+with Laya → Clef and with Basal Pico → Ultra, provided both models can handle
+the normalized request types. A *named benchmark setup* is a specific
+dataset–adapter–cascade combination; the absence of such a setup for one
+model pair does not imply an unavailable or model-specific dataset. The
+shared runner also accepts `--cascade`, `--dataset-id` and `--adapter`
+directly without a named setup. See the two cascade guides for a paired
+example using the same held-out source.
+
 ## Run a benchmark
 
 From the repository root on a compatible NVIDIA ARM64 GPU host, use the
