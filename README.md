@@ -140,6 +140,8 @@ claim real-world quality or latency improvements.
 
 Available named benchmarks are grouped by purpose:
 
+The **Setups** column counts named benchmark configurations (dataset, adapter, selection, cascade and routing policy), not distinct datasets.
+
 | Group | Setups | Meaning |
 | --- | ---: | --- |
 | `smoke` | 3 | Bundled synthetic integration checks |
