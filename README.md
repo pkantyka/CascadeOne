@@ -27,6 +27,25 @@ Start a System One API for the selected cascade, inspect its logs, and stop it w
 ./cascadeone inference start --cascade laya-clef/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
+# Test the running cascade with a typed decision request.
+# -i displays HTTP response headers, including X-CascadeOne-Route.
+curl -i -sS http://127.0.0.1:18358/v1/systemone \
+  -H "Authorization: Bearer ${CASCADEONE_API_TOKEN:-$(cat .cascadeone/token)}" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "laya-clef-core",
+    "state": "Customer needs a password reset.",
+    "questions": {
+      "request_type": {
+        "type": "choice",
+        "criteria": {
+          "account": "Account support",
+          "billing": "Billing support"
+        }
+      }
+    }
+  }'
+
 # Inspect inference logs, then stop the selected stack.
 ./cascadeone inference logs --cascade laya-clef/confidence
 ./cascadeone inference stop --cascade laya-clef/confidence
