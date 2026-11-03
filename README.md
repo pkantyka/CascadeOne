@@ -10,43 +10,57 @@ The term *cascade* refers to conditional escalation: requests that the routing p
 
 ## Quick start
 
-On an **ARM64 NVIDIA GPU** host with Docker Compose v2 and sufficient VRAM, run from the `dist/CascadeOne-Community` repository root. The `./cascadeone` launcher handles Docker startup, dataset acquisition, benchmark authorization and result validation.
+On an **ARM64 NVIDIA GPU** host with Docker Compose v2 and sufficient VRAM, run commands from the `dist/CascadeOne-Community` repository root. The `./cascadeone` launcher manages the selected Docker Compose stack.
+
+### Inference
+
+Start a System One API for the selected cascade, inspect its logs, and stop it when no longer needed:
 
 ~~~bash
-# List available cascades, including model pairs and routing (no GPU needed).
+# List available model pairs and routing variants (no GPU required).
 ./cascadeone cascade list
 
-# List available named benchmarks for a cascade (no GPU needed).
+# Optional: use an API token from the environment rather than a local token file.
+# export CASCADEONE_API_TOKEN="$(openssl rand -hex 32)"
+
+# Start the API. --cuda-base overrides the NVIDIA image for both backends.
+./cascadeone inference start --cascade laya-clef/confidence \
+  --cuda-base nvcr.io/nvidia/vllm:26.07-py3
+
+# Inspect inference logs, then stop the selected stack.
+./cascadeone inference logs --cascade laya-clef/confidence
+./cascadeone inference stop --cascade laya-clef/confidence
+~~~
+
+The inference API is available at `http://127.0.0.1:18358/v1/systemone` and requires `Authorization: Bearer <token>`. See the [inference API example](inference/README.md#client-api).
+
+### Benchmark
+
+List available benchmarks, run a smoke test or evaluation, and optionally keep models loaded for subsequent runs:
+
+~~~bash
+# List named benchmarks for the selected cascade (no GPU required).
 ./cascadeone benchmark list --cascade basal-pico-ultra/confidence
 
-# Run the small smoke benchmark for Laya → Clef.
-# --cuda-base overrides the NVIDIA image for both backends; this tag is an example.
+# Run a small smoke benchmark for Laya → Clef.
 ./cascadeone benchmark smoke --cascade laya-clef/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
 # Evaluate Basal Pico → Ultra on one named held-out benchmark.
-# No --suite needed: this is a single dataset, not a batch.
 ./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence \
   --benchmark better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352
 
-# Models stop automatically after each smoke/evaluate run, even after failure.
-# To reuse warm models, opt in and stop the same variant explicitly later.
-./cascadeone benchmark smoke --cascade laya-clef/confidence --keep-running
-./cascadeone benchmark stop --cascade laya-clef/confidence
-
-# Optionally run ALL external setups defined for this cascade.
+# Optional: run all external benchmarks for this variant.
 ./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence --suite external
 
-# Optional: supply an API token in the environment (never saved by the launcher).
-# Uncomment if you prefer environment-based credentials:
-# export CASCADEONE_API_TOKEN="$(openssl rand -hex 32)"
-
-# Start a single public System One API with the selected cascade.
-./cascadeone inference start --cascade laya-clef/confidence \
-  --cuda-base nvcr.io/nvidia/vllm:26.07-py3
+# Optional: reuse warm models across benchmarks, then stop them explicitly.
+./cascadeone benchmark smoke --cascade laya-clef/confidence --keep-running
+./cascadeone benchmark stop --cascade laya-clef/confidence
 ~~~
 
-Omit `--cuda-base` to use the Compose default `nvcr.io/nvidia/vllm:26.07-py3`. This tag is **not** immutable; for strict reproducibility provide an approved, compatible image digest instead. The launcher uses **one API token** for inference and benchmarks: when `CASCADEONE_API_TOKEN` is set, it is used **without reading or writing `.cascadeone/token`**; otherwise the launcher creates/reuses that Git-ignored file with `0600` permissions. `POST /v1/systemone` requires `Authorization: Bearer <token>` in both modes. Benchmark-only endpoints are enabled only during benchmark runs. Run only one reference stack at a time because they share host port `18358`. To supply your own token without writing a token file, export `CASCADEONE_API_TOKEN` before running `./cascadeone`; API calls must include `Authorization: Bearer <token>`. See the [inference API example](inference/README.md#client-api).
+**By default, `benchmark smoke` and `benchmark evaluate` stop the selected Docker Compose stack after completion, including handled failures and interruptions.** `--keep-running` leaves the models running until `benchmark stop` (or `inference stop`) is invoked for the same variant. A stop also shuts down its inference API, if running.
+
+For either mode, omit `--cuda-base` to use the Compose default `nvcr.io/nvidia/vllm:26.07-py3`. This image tag is **not immutable**; use an approved compatible digest for strict reproducibility. The launcher shares one API token across inference and benchmarks: `CASCADEONE_API_TOKEN` takes precedence and is not saved, otherwise the launcher creates or reuses `.cascadeone/token` with `0600` permissions. Only one stack can bind the common host port `18358` at a time.
 
 See [Main usage modes](#main-usage-modes), [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md).
 
