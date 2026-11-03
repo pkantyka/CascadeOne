@@ -51,6 +51,104 @@ class LauncherTests(unittest.TestCase):
     def calls(self):
         return self.commands.read_text().splitlines() if self.commands.exists() else []
 
+    def test_smoke_stops_models_after_validation_by_default(self):
+        result = self.call("benchmark", "smoke", "--cascade", "laya-clef/confidence",
+                           "--output", "output/cleanup-smoke")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.calls()
+        self.assertIn("tools/validate_result.py", calls[-2])
+        self.assertEqual(calls[-1], "compose -f cascades/laya-clef/confidence/compose.yaml "
+                         "--profile inference --profile benchmark down")
+
+    def test_evaluate_stops_models_after_validation_by_default(self):
+        result = self.call("benchmark", "evaluate", "--cascade", "basal-pico-ultra/confidence",
+                           "--output", "output/cleanup-evaluate")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.calls()
+        self.assertIn("tools/validate_result.py", calls[-2])
+        self.assertEqual(calls[-1], "compose -f cascades/basal-pico-ultra/confidence/compose.yaml "
+                         "--profile inference --profile benchmark down")
+
+    def test_keep_running_preserves_stack_for_smoke_and_evaluate(self):
+        for action in ("smoke", "evaluate"):
+            with self.subTest(action=action):
+                self.commands.unlink(missing_ok=True)
+                result = self.call("benchmark", action, "--cascade", "laya-clef/confidence",
+                                   "--output", "output/keep-" + action, "--keep-running")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(any(" up -d --build --wait" in x for x in self.calls()))
+                self.assertTrue(any("tools/validate_result.py" in x for x in self.calls()))
+                self.assertFalse(any(x.endswith(" down") for x in self.calls()))
+                self.assertIn("Keeping model services running", result.stderr)
+
+    def test_stop_only_touches_selected_compose_without_token(self):
+        env = dict(self.env, CASCADEONE_API_TOKEN="")
+        result = self.call("benchmark", "stop", "--cascade", "laya-clef/pre-router", env=env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls(), [
+            "compose version",
+            "compose -f cascades/laya-clef/pre-router/compose.yaml "
+            "--profile inference --profile benchmark down"
+        ])
+        self.assertFalse((self.work / ".cascadeone").exists())
+
+    def test_stop_rejects_benchmark_options_before_docker(self):
+        for options in (("--keep-running",), ("--repeats", "3"), ("--cuda-base", "any"),
+                        ("--benchmark", "demo")):
+            with self.subTest(options=options):
+                self.commands.unlink(missing_ok=True)
+                result = self.call("benchmark", "stop", "--cascade",
+                                   "laya-clef/confidence", *options)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(self.commands.exists(), result.stderr)
+        for mode, action in (("inference", "start"), ("benchmark", "list")):
+            with self.subTest(mode=mode, action=action):
+                self.commands.unlink(missing_ok=True)
+                result = self.call(mode, action, "--cascade",
+                                   "laya-clef/confidence", "--keep-running")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(self.commands.exists(), result.stderr)
+
+    def test_cleanup_on_failed_validation_preserves_failure_status(self):
+        fake = self.work / "docker"
+        fake.write_text(fake.read_text() +
+                        '\ncase "$*" in *"tools/validate_result.py"*) exit 47 ;; esac\n')
+        result = self.call("benchmark", "smoke", "--cascade", "laya-clef/confidence",
+                           "--output", "output/fail-validation")
+        self.assertEqual(result.returncode, 47, result.stderr)
+        self.assertIn("tools/validate_result.py", self.calls()[-2])
+        self.assertTrue(self.calls()[-1].endswith("--profile inference --profile benchmark down"))
+
+    def test_interrupt_during_benchmark_stops_models(self):
+        fake = self.work / "docker"
+        fake.write_text(fake.read_text() +
+                        '\ncase "$*" in *"tools/validate_result.py"*) kill -TERM "$PPID" ;; esac\n')
+        result = self.call("benchmark", "smoke", "--cascade", "laya-clef/confidence",
+                           "--output", "output/interrupt-test")
+        self.assertEqual(result.returncode, 143, result.stderr)
+        self.assertTrue(self.calls()[-1].endswith("--profile inference --profile benchmark down"))
+
+    def test_cleanup_on_failed_compose_up(self):
+        fake = self.work / "docker"
+        fake.write_text(fake.read_text() +
+                        '\ncase "$*" in *" --wait-timeout 660"*) exit 29 ;; esac\n')
+        result = self.call("benchmark", "smoke", "--cascade", "laya-clef/confidence",
+                           "--output", "output/fail-start")
+        self.assertEqual(result.returncode, 29, result.stderr)
+        self.assertTrue(any(" up -d --build --wait" in x for x in self.calls()))
+        self.assertTrue(self.calls()[-1].endswith("--profile inference --profile benchmark down"))
+
+    def test_failed_cleanup_is_reported_and_fails_successful_benchmark(self):
+        fake = self.work / "docker"
+        fake.write_text(fake.read_text() +
+                        '\ncase "$*" in *" --profile inference --profile benchmark down"*) exit 31 ;; esac\n')
+        result = self.call("benchmark", "smoke", "--cascade", "laya-clef/confidence",
+                           "--output", "output/fail-shutdown")
+        self.assertEqual(result.returncode, 31, result.stderr)
+        self.assertIn("WARNING: Compose shutdown failed", result.stderr)
+        self.assertIn("./cascadeone benchmark stop --cascade laya-clef/confidence",
+                      result.stderr)
+
     def test_suite_is_not_required_for_named_benchmark(self):
         result = self.call("benchmark", "evaluate", "--cascade", "basal-pico-ultra/confidence",
                            "--benchmark", BASAL_CIVIL, "--output", "output/test-named-unique")

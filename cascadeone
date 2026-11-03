@@ -7,8 +7,9 @@ usage() {
 Usage:
   ./cascadeone cascade list      # list available cascade definitions
   ./cascadeone benchmark list     --cascade PAIR/VARIANT [--suite NAME]
-  ./cascadeone benchmark smoke    --cascade PAIR/VARIANT [--repeats N] [--cuda-base IMAGE]
-  ./cascadeone benchmark evaluate --cascade PAIR/VARIANT [--benchmark ID | --dataset-id ID --adapter NAME | --suite NAME] [options]
+  ./cascadeone benchmark smoke    --cascade PAIR/VARIANT [--repeats N] [--keep-running] [--cuda-base IMAGE]
+  ./cascadeone benchmark evaluate --cascade PAIR/VARIANT [--benchmark ID | --dataset-id ID --adapter NAME | --suite NAME] [--keep-running] [options]
+  ./cascadeone benchmark stop    --cascade PAIR/VARIANT
   ./cascadeone inference start|stop|logs --cascade PAIR/VARIANT [--cuda-base IMAGE]
 
 PAIR/VARIANT: e.g. laya-clef/confidence | laya-clef/pre-router | basal-pico-ultra/confidence
@@ -21,6 +22,7 @@ Benchmark options:
                      Omit to run a single benchmark (default: Civil Comments held-out).
   --output PATH      Fresh benchmark output directory relative to repository root.
   --repeats N        Repetitions per request (default: 2).
+  --keep-running     Leave model services running after smoke/evaluate (default: stop).
 
 Shared options:
   --cuda-base IMAGE  Override the CUDA/PyTorch Docker base used for BOTH backends.
@@ -30,8 +32,9 @@ Shared options:
 
 The launcher loads one API token from CASCADEONE_API_TOKEN or creates/reuses
 .cascadeone/token (mode 0600) if the environment variable is absent.
-It prepares datasets,
-starts the selected stack, waits for readiness, runs and validates the benchmark.
+It prepares datasets, starts the selected stack, waits for readiness, runs
+and validates the benchmark. By default, it shuts down the selected stack on
+success, failure or interruption; use --keep-running to retain it.
 Only one stack may bind host port 127.0.0.1:18358 at a time.
 USAGE
 }
@@ -44,7 +47,7 @@ case "$1" in -h|--help) usage; exit 0 ;; esac
 mode=$1; action=$2; shift 2
 
 cascade=; base=; output=; repeats=2; suite=; benchmark=; dataset=; adapter=
-output_set=no; repeats_set=no
+output_set=no; repeats_set=no; keep_running=no
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --cascade|--cuda-base|--output|--repeats|--suite|--benchmark|--dataset-id|--adapter)
@@ -62,14 +65,19 @@ while [ "$#" -gt 0 ]; do
         --adapter) adapter=$value ;;
       esac
       shift 2 ;;
+    --keep-running) keep_running=yes; shift ;;
     --help|-h) usage; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
 done
 
 case "$mode:$action" in
-  cascade:list|benchmark:list|benchmark:smoke|benchmark:evaluate|inference:start|inference:stop|inference:logs) ;;
+  cascade:list|benchmark:list|benchmark:smoke|benchmark:evaluate|benchmark:stop|inference:start|inference:stop|inference:logs) ;;
   *) die "unsupported command $mode $action" ;;
+esac
+case "$mode:$action" in
+  benchmark:smoke|benchmark:evaluate) ;;
+  *) [ "$keep_running" = no ] || die "--keep-running is only valid for benchmark smoke/evaluate" ;;
 esac
 case "$repeats" in ''|*[!0-9]*) die "--repeats must be positive" ;; esac
 [ "$repeats" -gt 0 ] || die "--repeats must be positive"
@@ -117,6 +125,11 @@ esac
 [ -f "cascades/$cascade/compose.yaml" ] || die "missing compose.yaml for $cascade"
 compose_file="cascades/$cascade/compose.yaml"
 
+if [ "$mode:$action" = benchmark:stop ]; then
+  [ -z "$base$output$suite$benchmark$dataset$adapter" ] &&
+    [ "$output_set" = no ] && [ "$repeats_set" = no ] ||
+    die "benchmark stop accepts only --cascade PAIR/VARIANT"
+fi
 if [ "$mode" = inference ] || [ "$action" = list ]; then
   [ "$output_set" = no ] && [ "$repeats_set" = no ] && [ -z "$benchmark$dataset$adapter" ] ||
     die "benchmark-specific options are not valid for this command"
@@ -165,7 +178,7 @@ PY
   exit 0
 fi
 
-if [ "$mode" = benchmark ]; then
+if [ "$mode" = benchmark ] && [ "$action" != stop ]; then
   [ -z "$output" ] && { cascade_slug=$(printf "%s" "$cascade" | tr "/" "-"); output="output/benchmarks/$cascade_slug-$action-$(date -u +%Y%m%dT%H%M%SZ)-$$"; }
   case "$output" in
     /*|.|..|../*|*/../*|*/..|*/./*|*/.|*[[:space:]]*) die "--output must be a relative, simple path inside the repository" ;;
@@ -249,6 +262,28 @@ else
   info "CUDA base: default from Compose (nvcr.io/nvidia/vllm:26.07-py3)"
 fi
 compose() { docker compose -f "$compose_file" "$@"; }
+
+if [ "$mode:$action" = benchmark:stop ]; then
+  info "Stopping benchmark stack for $cascade"
+  compose --profile inference --profile benchmark down
+  exit 0
+fi
+
+# An EXIT trap preserves the benchmark failure code and cleans up services even
+# after a partially successful up, validation failure, or a handled signal.
+cleanup_benchmark() {
+  result=$1
+  trap - 0 HUP INT TERM
+  info "Stopping benchmark stack for $cascade"
+  if compose --profile inference --profile benchmark down; then
+    :
+  else
+    cleanup_result=$?
+    info "WARNING: Compose shutdown failed (status $cleanup_result); retry: ./cascadeone benchmark stop --cascade $cascade"
+    [ "$result" -ne 0 ] || result=$cleanup_result
+  fi
+  exit "$result"
+}
 bench() { compose --profile inference --profile benchmark run --rm --no-deps benchmark "$@"; }
 start() {
   info "Building and starting all services of the selected variant (except benchmark); waiting for readiness"
@@ -334,6 +369,15 @@ if [ "$action" = evaluate ]; then
     dataset=bjb-civil-comments-heldout-v1
     acquire "$dataset"
   fi
+fi
+if [ "$keep_running" = no ]; then
+  # Only register cleanup immediately before starting persistent model services.
+  trap 'cleanup_benchmark $?' 0
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+else
+  info "Keeping model services running; stop with: ./cascadeone benchmark stop --cascade $cascade"
 fi
 start
 info "Benchmark: $cascade / $action / output $output"

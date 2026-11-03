@@ -29,6 +29,11 @@ On an **ARM64 NVIDIA GPU** host with Docker Compose v2 and sufficient VRAM, run 
 ./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence \
   --benchmark better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352
 
+# Models stop automatically after each smoke/evaluate run, even after failure.
+# To reuse warm models, opt in and stop the same variant explicitly later.
+./cascadeone benchmark smoke --cascade laya-clef/confidence --keep-running
+./cascadeone benchmark stop --cascade laya-clef/confidence
+
 # Optionally run ALL external setups defined for this cascade.
 ./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence --suite external
 
@@ -47,7 +52,7 @@ See [Main usage modes](#main-usage-modes), [Laya → Clef](cascades/laya-clef/RE
 
 ## Cascade definitions
 
-Each independently launchable variant lives in `cascades/<pair>/<variant>/`, containing its own **`cascade.yaml`** (models, backend revisions, routing policy) and complete **`compose.yaml`** (Docker services). Compose files are not merged or inherited between variants. The launcher starts the services enabled by the chosen variant's Compose file (excluding benchmark-only services), so adding a router service does not require changing launcher source. Model Dockerfile recipes may be shared within a pair, but each variant's service topology is explicit. `./cascadeone cascade list` discovers all valid pair/variant directories, including [Laya → Clef pre-router](cascades/laya-clef/pre-router/cascade.yaml).
+Each independently launchable variant lives in `cascades/<pair>/<variant>/`, containing its own **`cascade.yaml`** (models, backend revisions, routing policy) and complete **`compose.yaml`** (Docker services). Compose files are not merged or inherited between variants. The launcher starts the services enabled by the chosen variant's Compose file (excluding benchmark-only services), so adding a router service does not require changing launcher source. Benchmark smoke/evaluate shuts down the selected Compose stack when finished (or after a handled failure or interruption). Pass `--keep-running` to retain the models, then use `./cascadeone benchmark stop --cascade PAIR/VARIANT` for the same variant. Stopping a variant also stops any inference API running in that variant's Compose project; other variants are unaffected. Model Dockerfile recipes may be shared within a pair, but each variant's service topology is explicit. `./cascadeone cascade list` discovers all valid pair/variant directories, including [Laya → Clef pre-router](cascades/laya-clef/pre-router/cascade.yaml).
 
 Benchmark configurations remain **JSON** (`benchmarks/<benchmark-id>/benchmark.json`), referencing an exact pair/variant YAML path and defining a dataset, adapter and selection. Select a variant with `--cascade laya-clef/pre-router` or `--cascade basal-pico-ultra/confidence`. Run `./cascadeone cascade list` to see all available profiles. The old pair-only `--cascade laya-clef` and `--cascade basal-pico-ultra` names are intentionally replaced by explicit `PAIR/VARIANT` selectors. This local listing command requires Python 3 and PyYAML (`python3 -m pip install PyYAML==6.0.2`); no Docker or GPU is needed. The inference and benchmark Docker images install the pinned YAML parser automatically.
 
@@ -110,7 +115,7 @@ The same cascade can be evaluated on **many independent datasets**. `--cascade` 
 
 The two main usage modes are:
 
-- **Benchmark:** `./cascadeone benchmark smoke|evaluate ...`. Measures quality, latency and escalation; a negative speedup or quality regression is a valid result. [Benchmark methodology](benchmarks/README.md).
+- **Benchmark:** `./cascadeone benchmark smoke|evaluate|stop ...`. Measures quality, latency and escalation; a negative speedup or quality regression is a valid result. [Benchmark methodology](benchmarks/README.md).
 - **Inference:** `./cascadeone inference start ...`. Exposes one System One HTTP model at `POST /v1/systemone`, with `GET /v1/models` and `GET /health`. [API reference](inference/README.md).
 
 For model-specific command examples and caveats, see [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md). `./cascadeone --help` lists all flags. Datasets remain model-independent and source provenance is recorded in each benchmark run.
