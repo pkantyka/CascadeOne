@@ -1,6 +1,7 @@
 # Pinned Ultra 2.1.0, same model / engine as the frozen CascadeOne Ultra results.
 # NGC provides CUDA + PyTorch; basal-serve uses native PyTorch eager.
-FROM nvcr.io/nvidia/vllm:26.07-py3
+ARG CUDA_BASE=nvcr.io/nvidia/vllm:26.07-py3
+FROM ${CUDA_BASE}
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \

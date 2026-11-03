@@ -19,7 +19,7 @@ from identity import benchmark_id  # noqa: E402
 from runner import run, load_dataset, sha  # noqa: E402
 from validate_result import validate  # noqa: E402
 
-def benchmark_setups(suite):
+def benchmark_setups(suite, cascade=None):
     """One folder = one source/split + model pair + routing strategy."""
     setups=sorted((ROOT/"benchmarks").glob("*/benchmark.json"))
     selected=[]
@@ -28,12 +28,12 @@ def benchmark_setups(suite):
         config=json.loads(path.read_text(encoding="utf-8"))
         ident=config.get("id")
         cascade_path=ROOT/config["cascade"]
-        cascade=json.loads(cascade_path.read_text(encoding="utf-8"))
-        if ident!=path.parent.name or ident!=benchmark_id(config,cascade):
+        cascade_config=json.loads(cascade_path.read_text(encoding="utf-8"))
+        if ident!=path.parent.name or ident!=benchmark_id(config,cascade_config):
             raise ValueError("benchmark ID does not match dataset, models and strategy: "+str(path))
         if ident in ids: raise ValueError("duplicate benchmark ID: "+ident)
         ids.add(ident)
-        if config.get("suite")==suite:
+        if config.get("suite")==suite and (cascade is None or config["cascade"]==f"cascades/{cascade}/benchmark.json"):
             selected.append(path)
     return selected
 
@@ -90,6 +90,7 @@ def main():
     p.add_argument("--output-root",type=Path)
     p.add_argument("--suite",choices=("wide","external","source","smoke"),default="wide")
     p.add_argument("--setup-id",help="run one setup from the selected suite")
+    p.add_argument("--cascade",choices=("laya-clef","basal-pico-ultra"),help="limit suite to one cascade")
     p.add_argument("--repeats",type=int,default=2)
     p.add_argument("--warmup",type=int,default=3)
     # A benchmark always runs all three arms. Strong-alone is separate
@@ -102,7 +103,7 @@ def main():
         p.error("invalid repeats/warmup")
     if a.output_root is None:
         a.output_root=ROOT/("output/confidence-"+a.suite)
-    setups=benchmark_setups(a.suite)
+    setups=benchmark_setups(a.suite, a.cascade)
     if a.setup_id:
         setups=[path for path in setups
                 if json.loads(path.read_text(encoding="utf-8"))["id"]==a.setup_id]

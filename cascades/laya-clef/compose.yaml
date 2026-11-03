@@ -28,7 +28,10 @@ services:
     <<: *common
     command: [python, cascades/laya-clef/serve_backend.py, --which, strong]
   benchmark:
-    image: python:3.12-slim
+    image: cascadeone-community-benchmark:pyarrow21
+    build:
+      context: ../..
+      dockerfile: cascades/basal-pico-ultra/Dockerfile.benchmark
     gpus: all
     working_dir: /workspace
     profiles: [benchmark]

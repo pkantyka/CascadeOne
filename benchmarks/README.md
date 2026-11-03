@@ -35,60 +35,33 @@ example using the same held-out source.
 
 ## Run a benchmark
 
-From the repository root on a compatible NVIDIA ARM64 GPU host, use the
-chosen cascade's Docker Compose file and a named matching benchmark.
-For Laya → Clef, the Compose file supplies a default NVIDIA CUDA/PyTorch image; `CASCADEONE_CUDA_BASE` is optional for pinning a verified digest. See [the complete Laya guide](../cascades/laya-clef/README.md) and [the Basal guide](../cascades/basal-pico-ultra/README.md) for prerequisites, both benchmark modes and inference examples.
+The root-level **`./cascadeone` launcher** is the recommended entry point. It automatically supplies the benchmark-only token to both the inference and benchmark containers, builds the Python runner (including Parquet support), acquires and verifies source files, waits for model readiness and validates results. Run from the `dist/CascadeOne-Community` repository root on a supported NVIDIA ARM64 GPU host.
 
 ~~~bash
-export CASCADEONE_BENCHMARK_TOKEN="$(openssl rand -hex 32)"
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
-docker compose -f cascades/laya-clef/compose.yaml --profile inference --profile benchmark run --rm benchmark \
-  python benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/run.py --repeats 2
-python tools/validate_result.py output/benchmarks/smoke-general__laya-clef__confidence-min-t0p900000
+# Show registered benchmark configurations (ID, dataset ID and optional group); no GPU.
+./cascadeone benchmark list --cascade basal-pico-ultra
+
+# Run a three-case smoke benchmark, using an explicit example CUDA base image.
+./cascadeone benchmark smoke --cascade basal-pico-ultra \
+  --cuda-base nvcr.io/nvidia/vllm:26.07-py3
+
+# Run ONE registered dataset/adapter/cascade experiment; --suite is optional.
+./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+  --benchmark banking77-test__basal-pico-ultra__confidence-min-t0p656352
+
+# OPTIONAL: run every compatible registered benchmark in the external group.
+./cascadeone benchmark evaluate --cascade basal-pico-ultra --suite external
+
+# Instead of a named setup, use ANY registered dataset and compatible adapter.
+./cascadeone benchmark evaluate --cascade laya-clef \
+  --dataset-id bjb-civil-comments-heldout-v1 --adapter better_jev_heldout_gold_v1
 ~~~
 
-The same token must be present in the inference and benchmark services;
-it authorizes benchmark-only modes, not ordinary `POST /v1/systemone`.
-Do not store or publish the token. Each run requires a new output directory
-(the runner refuses to overwrite existing measurements).
+**`--suite` is never required for an individual benchmark.** Named setups are independent from their source datasets: `--benchmark` selects a saved configuration, `--dataset-id` and `--adapter` build a direct experiment without creating a named setup, and `--suite` batches multiple matching named setups for one cascade. Use `./cascadeone --help` for `--output`, `--repeats` and `--cuda-base`. A tag like `nvcr.io/nvidia/vllm:26.07-py3` is not an immutable digest.
 
-For Basal Pico → Ultra, use
-`cascades/basal-pico-ultra/compose.yaml` and a matching named setup.
-The benchmark's runtime URL inside Compose is
-`http://inference:18358`. Running a named benchmark locally outside
-Compose requires an accessible inference URL and
-`CASCADEONE_BENCHMARK_TOKEN`; use the runner's
-`--inference-url` option if needed.
+The launcher uses the same System One inference HTTP engine for all three arms and leaves it running after a benchmark so further runs can reuse the models. Stop it with `./cascadeone inference stop --cascade basal-pico-ultra` (or the selected cascade name). It does not silently exclude unsupported requests; model eligibility, Gold provenance and possible model pretraining overlap remain important caveats.
 
-List or dry-run suites without starting models:
-
-~~~bash
-python benchmarks/run_confidence_wide.py --suite smoke --list
-python benchmarks/run_confidence_wide.py --suite wide --dry-run
-python benchmarks/run_confidence_wide.py --suite external --dry-run
-python benchmarks/run_confidence_wide.py --suite source --dry-run
-~~~
-
-These commands validate configurations and available data only; a
-`--dry-run` never establishes model speed or quality. For the Basal
-Pico → Ultra suites, the ready-to-run shell launchers download and
-verify sources, run a dry-run **before starting GPU models**, start
-the shared inference service and then run the benchmarks:
-
-~~~bash
-sh benchmarks/run_confidence_wide.sh
-sh benchmarks/run_confidence_external.sh
-~~~
-
-Run them **separately**, from the repository root on compatible GPU
-hardware. Each accepts an optional, unique output-root path as its first
-argument, for example `sh benchmarks/run_confidence_wide.sh output/my-wide-run`.
-By default the launchers create timestamped output paths. They generate
-a random benchmark token using `openssl` unless
-`CASCADEONE_BENCHMARK_TOKEN` is already set. This token is not written
-to the repository. The running model services are left up for reuse.
-See [dataset acquisition](../datasets/README.md) for source licenses
-and download requirements.
+The older shell helpers `benchmarks/run_confidence_wide.sh` and `benchmarks/run_confidence_external.sh` remain available for direct Compose workflows. Prefer the root launcher for new interactive use; advanced details are in [dataset acquisition](../datasets/README.md) and [inference internals](../inference/README.md).
 
 ## Two timing paths and backend provenance
 

@@ -1,0 +1,268 @@
+#!/bin/sh
+# CascadeOne Community launcher: orchestrates existing Docker Compose and Python tools.
+set -eu
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  ./cascadeone benchmark list     --cascade PAIR [--suite NAME]
+  ./cascadeone benchmark smoke    --cascade PAIR [--repeats N] [--cuda-base IMAGE]
+  ./cascadeone benchmark evaluate --cascade PAIR [--benchmark ID | --dataset-id ID --adapter NAME | --suite NAME] [options]
+  ./cascadeone inference start|stop|logs --cascade PAIR [--cuda-base IMAGE]
+
+PAIR: laya-clef | basal-pico-ultra
+
+Benchmark options:
+  --benchmark ID     Run a named benchmark configuration (the directory name under benchmarks/).
+  --dataset-id ID    Use a model-independent registered dataset instead of a named setup.
+  --adapter NAME     Normalization/Gold adapter for --dataset-id (required).
+  --suite NAME       OPTIONAL batch of setups: external, wide or source.
+                     Omit to run a single benchmark (default: Civil Comments held-out).
+  --output PATH      Fresh benchmark output directory relative to repository root.
+  --repeats N        Repetitions per request (default: 2).
+
+Shared options:
+  --cuda-base IMAGE  Override the CUDA/PyTorch Docker base used for BOTH backends.
+                     Example: nvcr.io/nvidia/vllm:26.07-py3
+                     By default, use the image in Compose.
+  --help             Print this help.
+
+The launcher creates the internal benchmark token automatically, prepares datasets,
+starts the selected stack, waits for readiness, runs and validates the benchmark.
+Only one stack may bind host port 127.0.0.1:18358 at a time.
+USAGE
+}
+die() { printf 'CascadeOne: %s\n' "$*" >&2; exit 2; }
+info() { printf 'CascadeOne: %s\n' "$*" >&2; }
+
+[ "$#" -gt 0 ] || { usage; exit 2; }
+case "$1" in -h|--help) usage; exit 0 ;; esac
+[ "$#" -ge 2 ] || die "expected MODE ACTION (see ./cascadeone --help)"
+mode=$1; action=$2; shift 2
+
+cascade=; base=; output=; repeats=2; suite=; benchmark=; dataset=; adapter=
+output_set=no; repeats_set=no
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --cascade|--cuda-base|--output|--repeats|--suite|--benchmark|--dataset-id|--adapter)
+      [ "$#" -ge 2 ] || die "$1 requires a value"
+      key=$1; value=$2
+      [ -n "$value" ] || die "$key cannot be empty"
+      case "$key" in
+        --cascade) cascade=$value ;;
+        --cuda-base) base=$value ;;
+        --output) output=$value; output_set=yes ;;
+        --repeats) repeats=$value; repeats_set=yes ;;
+        --suite) suite=$value ;;
+        --benchmark) benchmark=$value ;;
+        --dataset-id) dataset=$value ;;
+        --adapter) adapter=$value ;;
+      esac
+      shift 2 ;;
+    --help|-h) usage; exit 0 ;;
+    *) die "unknown option: $1" ;;
+  esac
+done
+case "$cascade" in laya-clef|basal-pico-ultra) ;; *) die "invalid/missing --cascade" ;; esac
+case "$mode:$action" in
+  benchmark:list|benchmark:smoke|benchmark:evaluate|inference:start|inference:stop|inference:logs) ;;
+  *) die "unsupported command $mode $action" ;;
+esac
+case "$repeats" in ''|*[!0-9]*) die "--repeats must be positive" ;; esac
+[ "$repeats" -gt 0 ] || die "--repeats must be positive"
+
+# The command always operates in its own repository regardless of current directory.
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+cd "$root"
+[ -f "cascades/$cascade/compose.yaml" ] || die "missing cascade Compose definition"
+compose_file="cascades/$cascade/compose.yaml"
+
+if [ "$mode" = inference ] || [ "$action" = list ]; then
+  [ "$output_set" = no ] && [ "$repeats_set" = no ] && [ -z "$benchmark$dataset$adapter" ] ||
+    die "benchmark-specific options are not valid for this command"
+  [ "$action" = list ] || [ -z "$suite" ] || die "--suite only applies to benchmarks"
+fi
+if [ "$action" = smoke ]; then
+  [ -z "$suite$benchmark$dataset$adapter" ] || die "smoke uses its pinned setup; use evaluate for custom tests"
+fi
+if [ "$action" = evaluate ]; then
+  chosen=0
+  [ -z "$suite" ] || chosen=$((chosen+1))
+  [ -z "$benchmark" ] || chosen=$((chosen+1))
+  [ -z "$dataset" ] || chosen=$((chosen+1))
+  [ "$chosen" -le 1 ] || die "--suite, --benchmark and --dataset-id are mutually exclusive"
+  if [ -n "$dataset" ]; then
+    [ -n "$adapter" ] || die "--dataset-id requires --adapter"
+  else
+    [ -z "$adapter" ] || die "--adapter requires --dataset-id"
+  fi
+fi
+if [ -n "$suite" ]; then
+  case "$suite" in external|wide|source) ;; smoke) [ "$action" = list ] || die "use benchmark smoke to execute the smoke suite" ;; *) die "unknown suite '$suite'" ;; esac
+fi
+if [ "$action" = list ]; then
+  [ -z "$base" ] || die "--cuda-base is not relevant when listing benchmarks"
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to list setups"
+  # Each listed setup belongs to the selected cascade, regardless of dataset origin.
+  python3 - "$cascade" "$suite" <<'PY'
+import json, pathlib, sys
+cascade, suite = sys.argv[1:]
+for path in sorted(pathlib.Path("benchmarks").glob("*/benchmark.json")):
+    setup = json.loads(path.read_text())
+    if setup["cascade"] != f"cascades/{cascade}/benchmark.json":
+        continue
+    if suite and setup.get("suite") != suite:
+        continue
+    print(f"{setup['id']}\t{setup['dataset']['id']}\t{setup.get('suite', '-')}")
+PY
+  exit 0
+fi
+
+if [ "$mode" = benchmark ]; then
+  [ -z "$output" ] && output="output/benchmarks/$cascade-$action-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  case "$output" in
+    /*|.|..|../*|*/../*|*/..|*/./*|*/.|*[[:space:]]*) die "--output must be a relative, simple path inside the repository" ;;
+  esac
+  [ ! -e "$output" ] || die "output already exists: $output"
+fi
+
+# Confirm selected named benchmark matches the selected cascade BEFORE Docker starts.
+if [ -n "$benchmark" ]; then
+  case "$benchmark" in *[!a-zA-Z0-9_.-]*|''|..|.*.*) die "invalid --benchmark ID" ;; esac
+  setup="benchmarks/$benchmark/benchmark.json"
+  [ -f "$setup" ] || die "unknown benchmark: $benchmark (use benchmark list)"
+  command -v python3 >/dev/null 2>&1 || die "python3 required for named benchmark metadata"
+  dataset=$(python3 - "$setup" "$cascade" <<'PY'
+import json,sys
+setup=json.load(open(sys.argv[1],encoding="utf-8"))
+if setup.get("cascade") != f"cascades/{sys.argv[2]}/benchmark.json":
+    sys.exit("benchmark setup belongs to another cascade")
+if setup.get("suite") == "smoke":
+    sys.exit("for smoke setups use benchmark smoke")
+print(setup["dataset"]["id"])
+PY
+  ) || die "benchmark metadata does not match cascade"
+fi
+
+# Prevent suite runs containing configurations for the wrong cascade.
+if [ -n "$suite" ]; then
+  command -v python3 >/dev/null 2>&1 || die "python3 required to inspect suites"
+  python3 - "$suite" "$cascade" <<'PY' || die "no benchmark setups for this cascade and suite"
+import json,pathlib,sys
+suite,cascade=sys.argv[1:]
+setups=[json.loads(p.read_text()) for p in pathlib.Path("benchmarks").glob("*/benchmark.json")]
+if not any(s.get("suite")==suite and s.get("cascade")==f"cascades/{cascade}/benchmark.json" for s in setups):
+    sys.exit("no matching setups")
+PY
+fi
+
+command -v docker >/dev/null 2>&1 || die "Docker is required"
+docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
+
+if [ -n "$base" ]; then
+  CASCADEONE_CUDA_BASE=$base
+  export CASCADEONE_CUDA_BASE
+  info "CUDA base: $CASCADEONE_CUDA_BASE"
+else
+  unset CASCADEONE_CUDA_BASE
+  info "CUDA base: default from Compose (nvcr.io/nvidia/vllm:26.07-py3)"
+fi
+compose() { docker compose -f "$compose_file" "$@"; }
+bench() { compose --profile inference --profile benchmark run --rm --no-deps benchmark "$@"; }
+start() {
+  info "Building and starting the two backends plus inference; waiting for readiness"
+  compose --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
+}
+make_token() {
+  if [ -z "${CASCADEONE_BENCHMARK_TOKEN:-}" ]; then
+    if command -v openssl >/dev/null 2>&1; then
+      CASCADEONE_BENCHMARK_TOKEN=$(openssl rand -hex 32)
+    elif command -v python3 >/dev/null 2>&1; then
+      CASCADEONE_BENCHMARK_TOKEN=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+    else
+      die "openssl or python3 required to generate benchmark token"
+    fi
+  fi
+  [ "${#CASCADEONE_BENCHMARK_TOKEN}" -ge 16 ] || die "benchmark token must have at least 16 characters"
+  export CASCADEONE_BENCHMARK_TOKEN
+}
+acquire() {
+  info "Acquiring model-independent dataset: $1"
+  bench python datasets/catalog.py acquire "$1"
+  bench python datasets/catalog.py verify "$1"
+}
+prep_suite() {
+  case "$suite" in
+    external|wide)
+      info "Downloading and verifying all $suite source datasets"
+      bench python "datasets/download_$suite.py"
+      bench python "datasets/download_$suite.py" --verify ;;
+    source) acquire n4ze3m-typed-decisions-v1 ;;
+  esac
+  bench python benchmarks/run_confidence_wide.py --suite "$suite" --cascade "$cascade" --dry-run
+}
+
+if [ "$mode" = inference ]; then
+  case "$action" in
+    start)
+      CASCADEONE_BENCHMARK_TOKEN=
+      export CASCADEONE_BENCHMARK_TOKEN
+      start
+      info "API ready at http://127.0.0.1:18358/v1/systemone" ;;
+    stop) compose --profile inference down ;;
+    logs) compose --profile inference logs --tail=80 inference ;;
+  esac
+  exit 0
+fi
+
+# For benchmarking, both HTTP clients must see the same temporary token.
+make_token
+info "Building Python benchmark image (includes Parquet support)"
+compose --profile inference --profile benchmark build benchmark
+
+if [ "$action" = evaluate ]; then
+  if [ -n "$suite" ]; then
+    prep_suite
+  elif [ -n "$dataset" ]; then
+    acquire "$dataset"
+  else
+    dataset=bjb-civil-comments-heldout-v1
+    acquire "$dataset"
+  fi
+fi
+start
+info "Benchmark: $cascade / $action / output $output"
+if [ "$action" = smoke ]; then
+  if [ "$cascade" = laya-clef ]; then
+    setup=benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json
+  else
+    setup=benchmarks/smoke-general__basal-pico-ultra__confidence-min-t0p656352/benchmark.json
+  fi
+  bench python benchmarks/runner.py --setup "$setup" --output "$output" --repeats "$repeats"
+elif [ -n "$suite" ]; then
+  bench python benchmarks/run_confidence_wide.py --suite "$suite" --cascade "$cascade" --output-root "$output" --repeats "$repeats"
+elif [ -n "$benchmark" ]; then
+  bench python benchmarks/runner.py --setup "$setup" --output "$output" --repeats "$repeats"
+elif [ -n "$adapter" ]; then
+  bench python benchmarks/runner.py \
+    --cascade "cascades/$cascade/benchmark.json" \
+    --dataset-id "$dataset" --adapter "$adapter" \
+    --output "$output" --repeats "$repeats"
+elif [ "$cascade" = laya-clef ]; then
+  bench python benchmarks/runner.py \
+    --cascade cascades/laya-clef/benchmark.json \
+    --dataset-id "$dataset" --adapter better_jev_heldout_gold_v1 \
+    --output "$output" --repeats "$repeats"
+else
+  bench python benchmarks/runner.py \
+    --setup benchmarks/better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
+    --output "$output" --repeats "$repeats"
+fi
+
+if [ -z "$suite" ]; then
+  info "Validating checksums and benchmark artifacts"
+  bench python tools/validate_result.py "$output"
+else
+  info "Suite runner validated its member runs; see $output/suite.json"
+fi
+info "Finished: $output"

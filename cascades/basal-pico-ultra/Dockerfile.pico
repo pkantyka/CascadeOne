@@ -1,5 +1,6 @@
 # DGX Spark ARM64. Native basal-serve eager, no vLLM inference.
-FROM nvcr.io/nvidia/vllm:26.07-py3
+ARG CUDA_BASE=nvcr.io/nvidia/vllm:26.07-py3
+FROM ${CUDA_BASE}
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \

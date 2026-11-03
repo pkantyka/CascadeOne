@@ -19,6 +19,8 @@ services:
     build:
       context: ../..
       dockerfile: cascades/basal-pico-ultra/Dockerfile.pico
+      args:
+        CUDA_BASE: "${CASCADEONE_CUDA_BASE:-nvcr.io/nvidia/vllm:26.07-py3}"
     command:
       [basal-serve, --model, Remek/basal-omni-pico,
        --revision, b31750af3ef1b45adfa765f73edbb84b5362983a,
@@ -30,6 +32,8 @@ services:
     build:
       context: ../..
       dockerfile: cascades/basal-pico-ultra/Dockerfile.ultra
+      args:
+        CUDA_BASE: "${CASCADEONE_CUDA_BASE:-nvcr.io/nvidia/vllm:26.07-py3}"
     command:
       [basal-serve, --model, Remek/basal-omni-1.0-ultra,
        --revision, b8e214cb42d0a7a4cb2c3a93b0ba02c65d7590e4,

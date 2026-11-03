@@ -8,37 +8,37 @@ arms through this engine; **Inference** exposes the cascade as one model.
 
 ## Start
 
-Both reference cascades have an optional Compose `inference` profile. Follow the [Laya → Clef](../cascades/laya-clef/README.md) or [Basal Pico → Ultra](../cascades/basal-pico-ultra/README.md) guide for complete start-to-finish commands. Laya defaults to the NVIDIA `nvcr.io/nvidia/vllm:26.07-py3` base image, so `CASCADEONE_CUDA_BASE` is not required for a basic start; an immutable digest can be supplied separately for reproducible runs.
-From the repository root on a compatible NVIDIA ARM64 GPU machine:
+From the Community repository root on a compatible NVIDIA ARM64 GPU host, use the `./cascadeone` launcher. The optional `--cuda-base` flag sets the NVIDIA CUDA/PyTorch image for **both** model backends. Otherwise the Compose default is used.
 
-```bash
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
-```
+~~~bash
+# Start Laya and Clef, wait until the HTTP API is ready.
+./cascadeone inference start --cascade laya-clef --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
-For Pico/Ultra use `cascades/basal-pico-ultra/compose.yaml` instead.
-The inference endpoint is **host-local** at `http://127.0.0.1:18358`.
-Backend model weights remain in their separately started services.
-Starting both Compose projects on the same host requires distinct local
-ports / project names.
+# Or start Basal Pico and Ultra (after stopping the other stack).
+./cascadeone inference start --cascade basal-pico-ultra
 
-The same service can run without Compose whenever the URLs in the
-chosen cascade JSON resolve from that process and both backends are running:
+# Inspect the inference service logs for the selected cascade.
+./cascadeone inference logs --cascade basal-pico-ultra
+~~~
 
-```bash
-python inference/server.py --cascade cascades/laya-clef/benchmark.json \
-  --host 127.0.0.1 --port 18358
-```
+The image shown is an example **tag**, not an immutable digest; for strict reproduction use an approved, compatible image digest. The public endpoint is host-local at `http://127.0.0.1:18358`. Do not run both reference stacks simultaneously: both use that port. See the [Laya → Clef](../cascades/laya-clef/README.md) and [Basal Pico → Ultra](../cascades/basal-pico-ultra/README.md) guides for prerequisites.
 
-This standalone CLI requires **Python 3.12** but no extra API framework packages.
-The server waits up to 600 seconds for the model services to come online and
-checks their declared identity. A backend that does not expose revision
-information cannot provide a revision attestation: the server warns.
+The same service can run without Compose if the model-backend URLs in the selected cascade JSON resolve from that process:
+
+~~~bash
+# Advanced: launch the Python proxy after starting both backends manually.
+python inference/server.py --cascade cascades/laya-clef/benchmark.json --host 127.0.0.1 --port 18358
+~~~
+
+The standalone CLI requires **Python 3.12** but no extra API framework packages. The server waits up to 600 seconds for model services and verifies declared backend identity where supported.
 
 ## Client API
 
 ```bash
+# Discover the public logical cascade model.
 curl http://127.0.0.1:18358/v1/models
 
+# Ask for a typed decision, not only model discovery.
 curl -s http://127.0.0.1:18358/v1/systemone \
   -H 'Content-Type: application/json' \
   -d '{

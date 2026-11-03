@@ -10,12 +10,33 @@ The term *cascade* refers to conditional escalation: requests that the routing p
 
 ## Quick start
 
-Choose a cascade: **[Laya → Clef](cascades/laya-clef/README.md)** or **[Basal Pico → Ultra](cascades/basal-pico-ultra/README.md)**. Each guide contains full copy-and-run instructions for two modes on a compatible NVIDIA ARM64 GPU host:
+On an **ARM64 NVIDIA GPU** host with Docker Compose v2 and sufficient VRAM, run from the `dist/CascadeOne-Community` repository root. The `./cascadeone` launcher handles Docker startup, dataset acquisition, benchmark authorization and result validation.
 
-- **Benchmark:** compare `fast_only`, `strong_only` and `cascade` on the same dataset (smoke and held-out evaluation examples).
-- **Inference:** expose the cascade as one System One API and send a decision request to `POST /v1/systemone`.
+~~~bash
+# List available named benchmarks for a cascade (no GPU needed).
+./cascadeone benchmark list --cascade basal-pico-ultra
 
-Run commands from the **`dist/CascadeOne-Community` repository root**. No manual CUDA image variable is required for the Laya quickstart: its Compose file has a default NVIDIA base-image tag. See [Main usage modes](#main-usage-modes) and the selected cascade guide for prerequisites and details.
+# Run the small smoke benchmark for Laya → Clef.
+# --cuda-base overrides the NVIDIA image for both backends; this tag is an example.
+./cascadeone benchmark smoke --cascade laya-clef \
+  --cuda-base nvcr.io/nvidia/vllm:26.07-py3
+
+# Evaluate Basal Pico → Ultra on one named held-out benchmark.
+# No --suite needed: this is a single dataset, not a batch.
+./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+  --benchmark better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352
+
+# Optionally run ALL external setups defined for this cascade.
+./cascadeone benchmark evaluate --cascade basal-pico-ultra --suite external
+
+# Start a single public System One API with the selected cascade.
+./cascadeone inference start --cascade laya-clef \
+  --cuda-base nvcr.io/nvidia/vllm:26.07-py3
+~~~
+
+Omit `--cuda-base` to use the Compose default `nvcr.io/nvidia/vllm:26.07-py3`. This tag is **not** immutable; for strict reproducibility provide an approved, compatible image digest instead. The benchmark token is generated internally and is not part of the user command. Run only one reference stack at a time because they share host port `18358`.
+
+See [Main usage modes](#main-usage-modes), [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md).
 
 ## Repository
 
@@ -54,6 +75,7 @@ flowchart TD
 
 ## What is included
 
+- **Launcher:** [`./cascadeone`](cascadeone) starts inference or benchmarks, accepts an optional `--cuda-base` and batches tests only when `--suite` is explicitly provided.
 - **Two reference cascades:** [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md), with versioned model configurations and Docker Compose definitions.
 - **A policy-driven cascade runtime:** [cascades/runtime.py](cascades/runtime.py) and [cascades/policies.py](cascades/policies.py).
 - **Local inference API:** [inference/](inference/README.md) serves a configured cascade through one System One endpoint, with validated benchmark-based startup warnings.
@@ -69,32 +91,30 @@ Model identity alone is not a complete execution profile: cascade definitions pi
 
 ## Main usage modes
 
-Both modes use the **same cascade configuration and inference engine**. Datasets are model-independent; a benchmark setup combines a dataset, adapter and cascade.
+The same cascade can be evaluated on **many independent datasets**. `--cascade` chooses the model pair and routing profile; `--benchmark` selects one named experiment (dataset, adapter and selection), and `--dataset-id` with `--adapter` allows running a new dataset directly. **`--suite` is optional**: specify it only to execute a batch of named setups. The runner measures `fast_only`, `strong_only` and `cascade` on identical requests.
 
-### 1. Benchmark
+The two reference modes are:
 
-The runner makes three comparable HTTP measurements through the shared inference engine: `fast_only`, `strong_only` and `cascade`. It records client end-to-end latency, engine-internal latency, decision quality when Gold is available, and escalation. The small synthetic smoke dataset provides real diagnostic measurements; broader held-out evaluation is needed to assess representative performance. Negative results are valid findings.
+- **Benchmark:** `./cascadeone benchmark smoke|evaluate ...`. Measures quality, latency and escalation; a negative speedup or quality regression is a valid result. [Benchmark methodology](benchmarks/README.md).
+- **Inference:** `./cascadeone inference start ...`. Exposes one System One HTTP model at `POST /v1/systemone`, with `GET /v1/models` and `GET /health`. [API reference](inference/README.md).
 
-**Complete start-to-finish instructions:** [Laya → Clef benchmark](cascades/laya-clef/README.md#1-benchmark) or [Basal Pico → Ultra benchmark](cascades/basal-pico-ultra/README.md#1-benchmark). For methodology, see [Benchmark framework](benchmarks/README.md).
-
-### 2. Inference
-
-The inference service exposes one HTTP System One model. Routing selects the fast model or escalates to the strong model; clients receive one decision response. The public endpoints are `POST /v1/systemone`, `GET /v1/models` and `GET /health`. When startup has no validated matching benchmark report, speedup and quality differences are explicitly reported as unknown.
-
-**Complete start-to-finish instructions with a decision API example:** [Laya → Clef inference](cascades/laya-clef/README.md#2-inference-service) or [Basal Pico → Ultra inference](cascades/basal-pico-ultra/README.md#2-inference-service). See [Inference API](inference/README.md) for details.
+For model-specific command examples and caveats, see [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md). `./cascadeone --help` lists all flags. Datasets remain model-independent and source provenance is recorded in each benchmark run.
 
 ## Local checks (no GPU needed)
 
 From the repository root, run the CPU contract tests:
 
 ~~~bash
+# Run CPU contract tests (no GPU and no model services).
 python -m unittest discover -s tests -v
 ~~~
 
 Inspect source datasets and verify the bundled synthetic sample:
 
 ~~~bash
+# List registered source datasets.
 python datasets/catalog.py list
+# Verify the bundled smoke source against its SHA-256.
 python datasets/catalog.py verify smoke-general-v1
 ~~~
 
@@ -102,7 +122,9 @@ List available smoke benchmarks or validate an input setup without
 starting model services:
 
 ~~~bash
+# List named smoke configurations without running inference.
 python benchmarks/run_confidence_wide.py --suite smoke --list
+# Check source normalization and setup validity without invoking models.
 python benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/run.py --dry-run
 ~~~
 

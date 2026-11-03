@@ -1,80 +1,54 @@
 # Basal Pico → Ultra
 
-Cascade: **Basal Pico (fast model) → Basal Ultra (strong model)**, confidence routing at **0.6563522219657898**. The pinned model backends use `basal-serve` 2.3.2 (Pico) and 2.1.0 (Ultra), both in `eager` mode.
+The reference cascade runs **Basal Pico (fast model)** and **Basal Ultra (strong model)** with the frozen minimum-confidence threshold **0.6563522219657898**. The independently pinned `basal-serve` versions are 2.3.2 (Pico) and 2.1.0 (Ultra), in `eager` mode.
 
-## Before you start
+## Requirements
 
-Run all commands **from the `dist/CascadeOne-Community` repository root** (containing `cascades/` and `benchmarks/`).
+Run from the `dist/CascadeOne-Community` repository root on an **ARM64 NVIDIA GPU host** (for example DGX Spark). You need Docker Compose v2 with `--wait` support, sufficient RAM/VRAM for both models and access to their pinned Hugging Face revisions. The default CUDA/PyTorch image is `nvcr.io/nvidia/vllm:26.07-py3`. It is a **tag**, not an immutable digest, and full clean-host GPU validation is still pending.
 
-You need an **ARM64 NVIDIA GPU host** (such as DGX Spark), Docker Compose v2 with GPU access and `--wait` support, `curl` and `openssl`, enough VRAM for both models and access to their pinned Hugging Face snapshots. Dockerfiles use the default NVIDIA image `nvcr.io/nvidia/vllm:26.07-py3`. This image is referenced by tag rather than immutable digest; exact environment reproduction and end-to-end GPU execution still require validation.
+The launcher takes an optional `--cuda-base IMAGE` flag and applies the image to **both** model builds. A tested compatible digest is preferable for precisely reproduced experiments.
 
-## 1. Benchmark
+## Benchmark
 
-The benchmark uses the **same inference engine** as the public API for `fast_only`, `strong_only` and `cascade`. The random token enables benchmark-only endpoints.
+All benchmark configurations use the **same shared inference service** for the three arms (`fast_only`, `strong_only`, `cascade`). The launcher generates the benchmark token, prepares and verifies data, starts the backend services and validates the results.
 
 ~~~bash
-export CASCADEONE_BENCHMARK_TOKEN="$(openssl rand -hex 32)"
-COMPOSE=cascades/basal-pico-ultra/compose.yaml
-docker compose -f "$COMPOSE" --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
-docker compose -f "$COMPOSE" --profile inference logs --tail=30 inference
+# Smoke: measure routing, latency and decision quality on three synthetic cases.
+./cascadeone benchmark smoke --cascade basal-pico-ultra \
+  --cuda-base nvcr.io/nvidia/vllm:26.07-py3
+
+# See the datasets and named benchmark setups for this model pair.
+./cascadeone benchmark list --cascade basal-pico-ultra
+
+# Evaluate the cascade on ONE named Civil Comments held-out benchmark.
+# No --suite needed: --benchmark selects precisely one configured experiment.
+./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+  --benchmark better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352
+
+# Evaluate the SAME cascade on a DIFFERENT named dataset (BANKING77 test).
+./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+  --benchmark banking77-test__basal-pico-ultra__confidence-min-t0p656352
+
+# OPTIONAL: run the entire external group of registered benchmark setups.
+./cascadeone benchmark evaluate --cascade basal-pico-ultra --suite external
+
+# Alternative: supply a dataset and adapter directly, without a named setup.
+./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+  --dataset-id bjb-civil-comments-heldout-v1 --adapter better_jev_heldout_gold_v1
 ~~~
 
-### Smoke — three synthetic decisions
+Datasets are **model-independent**. A named benchmark defines the dataset, adapter, selection and reference cascade; `--suite` is only an optional grouping filter for batch execution. The runner refuses to overwrite results and reports both negative and positive speedups. Source-held-out labels do not exclude possible pretraining overlap; smoke performance on three examples is not representative.
+
+## Inference service
+
+Run Pico → Ultra as one public System One decision API without manually creating a benchmark token:
 
 ~~~bash
-OUT="output/basal-smoke-$(date -u +%Y%m%dT%H%M%SZ)"
-docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
-  python benchmarks/runner.py \
-  --setup benchmarks/smoke-general__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
-  --output "$OUT" --repeats 2
+# Build/start the models and wait for the inference API to be healthy.
+./cascadeone inference start --cascade basal-pico-ultra \
+  --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
-docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
-  python tools/validate_result.py "$OUT"
-~~~
-
-Smoke reports actual timing and quality for **three synthetic cases**; it is not a representative performance estimate.
-
-### Evaluation — a pinned held-out dataset
-
-The `bjb-civil-comments-heldout-v1` dataset is **independent of models** and is used in both cascade guides. Basal already has a named benchmark setup combining this source, its adapter and the Pico → Ultra cascade. It normalizes 4,000 Gold-scored requests.
-
-With the benchmark stack above running:
-
-~~~bash
-docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
-  python datasets/catalog.py acquire bjb-civil-comments-heldout-v1
-
-OUT="output/basal-eval-$(date -u +%Y%m%dT%H%M%SZ)"
-docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
-  python benchmarks/runner.py \
-  --setup benchmarks/better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
-  --output "$OUT" --repeats 2
-
-docker compose -f "$COMPOSE" --profile inference --profile benchmark run --rm --no-deps benchmark \
-  python tools/validate_result.py "$OUT"
-~~~
-
-To run **all** available external evaluation setups, use the complete launcher *instead of* the single-dataset commands:
-
-~~~bash
-sh benchmarks/run_confidence_external.sh
-~~~
-
-The measured result may be **negative**: a cascade can be slower than the strong model or lose too much quality. Public held-out sources can overlap unknown model pretraining. Both model backends remain resident during the three-arm comparison; a strong-alone experiment needs a different deployment.
-
-## 2. Inference service
-
-To serve the cascade as a **single System One model**, no benchmark token is needed:
-
-~~~bash
-COMPOSE=cascades/basal-pico-ultra/compose.yaml
-docker compose -f "$COMPOSE" --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
-curl -f http://127.0.0.1:18358/health
-~~~
-
-Ask the API for a decision:
-
-~~~bash
+# Send one policy decision to the cascade.
 curl -i -sS http://127.0.0.1:18358/v1/systemone \
   -H 'Content-Type: application/json' \
   -d '{
@@ -88,14 +62,9 @@ curl -i -sS http://127.0.0.1:18358/v1/systemone \
       }
     }
   }'
+
+# Stop the Basal containers.
+./cascadeone inference stop --cascade basal-pico-ultra
 ~~~
 
-The response includes `answers.refund.probabilities`. Header `X-CascadeOne-Escalated` shows whether Ultra was invoked. Startup warnings show speed/quality as **unknown** until a matching benchmark is supplied (see [Inference API](../../inference/README.md)).
-
-To stop the services:
-
-~~~bash
-docker compose -f "$COMPOSE" --profile inference down
-~~~
-
-Run **one reference Compose project at a time**: both expose host port `127.0.0.1:18358`. See [benchmark methodology](../../benchmarks/README.md) for metric definitions and provenance.
+The HTTP response includes `answers.refund.probabilities` and an `X-CascadeOne-Escalated` header indicating Ultra execution. Only one reference stack should bind `127.0.0.1:18358` at a time. For logs, run `./cascadeone inference logs --cascade basal-pico-ultra`. See [inference API](../../inference/README.md) and [benchmark methodology](../../benchmarks/README.md) for detailed contracts and limitations.
