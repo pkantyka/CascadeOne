@@ -27,10 +27,25 @@ The same service can run without Compose if the model-backend URLs in the select
 
 ~~~bash
 # Advanced: launch the Python proxy after starting both backends manually.
+# CASCADEONE_API_TOKEN must be exported; standalone mode does not generate it.
 python inference/server.py --cascade cascades/laya-clef/benchmark.json --host 127.0.0.1 --port 18358
 ~~~
 
 The standalone CLI requires **Python 3.12** but no extra API framework packages. The server waits up to 600 seconds for model services and verifies declared backend identity where supported.
+
+## Authentication
+
+The same `CASCADEONE_API_TOKEN` authorizes both `POST /v1/systemone` and benchmark-only requests. **When this environment variable is set, the launcher does not read, create or modify `.cascadeone/token`.** Otherwise it creates the file once (Git-ignored, permissions `0600`) and reuses it across runs. A token must have at least 16 characters. The bearer token is required on every POST; `/health` and `/v1/models` remain unauthenticated for readiness and discovery.
+
+~~~bash
+# Optional: use a token from your environment or secret manager; no token file is written.
+export CASCADEONE_API_TOKEN="$(openssl rand -hex 32)"
+
+# Launch using that token instead of a local file.
+./cascadeone inference start --cascade laya-clef
+~~~
+
+The benchmark endpoints `/internal/benchmark/*` additionally require the launcher to start inference with benchmark mode enabled. They return `404` in normal inference mode, even with a valid token. The local reference deployment has no TLS; use trusted local networking only.
 
 ## Client API
 
@@ -40,6 +55,7 @@ curl http://127.0.0.1:18358/v1/models
 
 # Ask for a typed decision, not only model discovery.
 curl -s http://127.0.0.1:18358/v1/systemone \
+  -H "Authorization: Bearer ${CASCADEONE_API_TOKEN:-$(cat .cascadeone/token)}" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "laya-clef-core",
@@ -65,10 +81,7 @@ Use `GET /health` to check the local proxy. Optional response headers
 `X-CascadeOne-Escalated` expose its route without changing the response
 body. Requests are routed according to the profile, including pre-routing.
 
-Only run this endpoint on trusted machines/networks: there is **no
-authentication or TLS** in this small reference server. Compose exposes
-the host port on `127.0.0.1` only. Backend services are not exposed
-through the Compose host port.
+Use the endpoint only on trusted machines/networks: Bearer authorization is enabled, but there is **no TLS** in the reference server. Compose exposes the port on host `127.0.0.1`; backend services are not exposed through that port.
 
 ## Startup benchmark comparison
 
@@ -77,6 +90,7 @@ same filesystem visible to the inference service. In Compose, set
 `CASCADEONE_BENCHMARK_RUN` when starting, for example:
 
 ```bash
+# Advanced manual Compose start: export CASCADEONE_API_TOKEN first.
 CASCADEONE_BENCHMARK_RUN=output/benchmarks/MY-VERIFIED-RUN \
 docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
 ```
@@ -136,7 +150,7 @@ caveats.
 
 ## Unified benchmark execution and timing
 
-The benchmark runner uses this same HTTP inference service for `cascade`, `fast_only` and `strong_only`. Baseline variants require a separate benchmark-only endpoint protected by `CASCADEONE_BENCHMARK_TOKEN`; public `/v1/systemone` cannot select a baseline. Use a randomly generated token of at least 16 characters, available to both the inference service and benchmark runner (for example `openssl rand -hex 32`).
+The benchmark runner uses the same HTTP inference service for `cascade`, `fast_only` and `strong_only`. Both the public inference endpoint and benchmark-only endpoints use `CASCADEONE_API_TOKEN`; the latter are available only with `CASCADEONE_BENCHMARK_MODE=1` (set by the launcher for benchmark runs). The public `/v1/systemone` endpoint cannot select a baseline.
 
 Every trial records `latency_ms` (client-measured full HTTP end-to-end), `engine_ms` (server-measured routing plus backend HTTP), `proxy_overhead_ms` (their difference), `fast_ms`, and `strong_ms`. Summaries report mean and p95 for both latency paths. **Engine-internal timing includes model-service HTTP overhead and is not a pure CUDA or neural network forward-pass timer.** GPU-only timing requires opt-in, backend-specific instrumentation with CUDA synchronization; it is not collected by this reference proxy.
 

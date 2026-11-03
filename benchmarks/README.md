@@ -35,7 +35,7 @@ example using the same held-out source.
 
 ## Run a benchmark
 
-The root-level **`./cascadeone` launcher** is the recommended entry point. It automatically supplies the benchmark-only token to both the inference and benchmark containers, builds the Python runner (including Parquet support), acquires and verifies source files, waits for model readiness and validates results. Run from the `dist/CascadeOne-Community` repository root on a supported NVIDIA ARM64 GPU host.
+The root-level **`./cascadeone` launcher** is the recommended entry point. It supplies one `CASCADEONE_API_TOKEN` to both the inference and benchmark containers, builds the Python runner (including Parquet support), acquires and verifies source files, waits for model readiness and validates results. Run from the `dist/CascadeOne-Community` repository root on a supported NVIDIA ARM64 GPU host.
 
 ~~~bash
 # Show registered benchmark configurations (ID, dataset ID and optional group); no GPU.

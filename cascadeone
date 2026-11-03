@@ -27,7 +27,9 @@ Shared options:
                      By default, use the image in Compose.
   --help             Print this help.
 
-The launcher creates the internal benchmark token automatically, prepares datasets,
+The launcher loads one API token from CASCADEONE_API_TOKEN or creates/reuses
+.cascadeone/token (mode 0600) if the environment variable is absent.
+It prepares datasets,
 starts the selected stack, waits for readiness, runs and validates the benchmark.
 Only one stack may bind host port 127.0.0.1:18358 at a time.
 USAGE
@@ -173,18 +175,39 @@ start() {
   info "Building and starting the two backends plus inference; waiting for readiness"
   compose --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
 }
-make_token() {
-  if [ -z "${CASCADEONE_BENCHMARK_TOKEN:-}" ]; then
-    if command -v openssl >/dev/null 2>&1; then
-      CASCADEONE_BENCHMARK_TOKEN=$(openssl rand -hex 32)
-    elif command -v python3 >/dev/null 2>&1; then
-      CASCADEONE_BENCHMARK_TOKEN=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+setup_api_token() {
+  if [ "${CASCADEONE_API_TOKEN+x}" = x ]; then
+    # An explicitly supplied token always wins; never read or write the token file.
+    info "Using CASCADEONE_API_TOKEN from environment (not saved to disk)"
+  else
+    token_dir="$root/.cascadeone"
+    token_file="$token_dir/token"
+    [ ! -L "$token_dir" ] || die "token directory cannot be a symlink"
+    (umask 077; mkdir -p "$token_dir") || die "cannot create token directory"
+    chmod 700 "$token_dir" || die "cannot protect token directory"
+    if [ -e "$token_file" ] || [ -L "$token_file" ]; then
+      [ -f "$token_file" ] && [ ! -L "$token_file" ] || die "unsafe token file"
     else
-      die "openssl or python3 required to generate benchmark token"
+      if command -v openssl >/dev/null 2>&1; then
+        generated=$(openssl rand -hex 32)
+      elif command -v python3 >/dev/null 2>&1; then
+        generated=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+      else
+        die "openssl or python3 required to generate API token"
+      fi
+      (umask 077; set -C; printf '%s\n' "$generated" > "$token_file") ||
+        die "cannot securely create token file"
+      unset generated
     fi
+    chmod 600 "$token_file" || die "cannot protect token file"
+    CASCADEONE_API_TOKEN=$(cat "$token_file")
+    info "Using API token from .cascadeone/token"
   fi
-  [ "${#CASCADEONE_BENCHMARK_TOKEN}" -ge 16 ] || die "benchmark token must have at least 16 characters"
-  export CASCADEONE_BENCHMARK_TOKEN
+  [ "${#CASCADEONE_API_TOKEN}" -ge 16 ] || die "CASCADEONE_API_TOKEN must have at least 16 characters"
+  case "$CASCADEONE_API_TOKEN" in
+    *[!A-Za-z0-9._~+/=-]*) die "API token contains invalid bearer characters" ;;
+  esac
+  export CASCADEONE_API_TOKEN
 }
 acquire() {
   info "Acquiring model-independent dataset: $1"
@@ -205,18 +228,21 @@ prep_suite() {
 if [ "$mode" = inference ]; then
   case "$action" in
     start)
-      CASCADEONE_BENCHMARK_TOKEN=
-      export CASCADEONE_BENCHMARK_TOKEN
+      setup_api_token
+      CASCADEONE_BENCHMARK_MODE=0
+      export CASCADEONE_BENCHMARK_MODE
       start
-      info "API ready at http://127.0.0.1:18358/v1/systemone" ;;
+      info "API ready at http://127.0.0.1:18358/v1/systemone (Bearer token required)" ;;
     stop) compose --profile inference down ;;
     logs) compose --profile inference logs --tail=80 inference ;;
   esac
   exit 0
 fi
 
-# For benchmarking, both HTTP clients must see the same temporary token.
-make_token
+# Both clients share a single API token; benchmark-only endpoints are explicitly enabled.
+setup_api_token
+CASCADEONE_BENCHMARK_MODE=1
+export CASCADEONE_BENCHMARK_MODE
 info "Building Python benchmark image (includes Parquet support)"
 compose --profile inference --profile benchmark build benchmark
 

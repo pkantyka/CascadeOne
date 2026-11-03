@@ -57,8 +57,8 @@ class SmokeTests(unittest.TestCase):
     def serve_inference(self, strong_alone=False):
         from inference.server import Service, make_handler
         server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(
-            Service(self.config, benchmark_token="test-secret-benchmark-token-987",
-                    strong_alone=strong_alone)))
+            Service(self.config, api_token="test-secret-benchmark-token-987",
+                    benchmark_mode=True, strong_alone=strong_alone)))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.addCleanup(server.server_close)
@@ -70,7 +70,7 @@ class SmokeTests(unittest.TestCase):
         with mock.patch("inference.server.get_json",side_effect=self.fake_request),\
              mock.patch.object(runner,"Telemetry",SimulatedTelemetry):
             result=runner.run(self.config,self.dataset,self.root/"r1",repeats=2,warmup=0,
-                              inference_url=url,benchmark_token="test-secret-benchmark-token-987")
+                              inference_url=url,api_token="test-secret-benchmark-token-987")
             assert result["arms"]["cascade"]["escalation_rate"]==1
             assert result["by_domain"]["legal"]["cascade"]["n"]==4
             assert result["by_domain"]["medical"]["cascade"]["n"]==2
@@ -93,12 +93,12 @@ class SmokeTests(unittest.TestCase):
             assert validate_result.validate(self.root/"r1")["valid"]
             with self.assertRaises(FileExistsError):
                 runner.run(self.config,self.dataset,self.root/"r1",warmup=0,
-                           inference_url=url,benchmark_token="test-secret-benchmark-token-987")
+                           inference_url=url,api_token="test-secret-benchmark-token-987")
             alone_url=self.serve_inference(strong_alone=True)
             with mock.patch("inference.server.get_json",side_effect=self.fake_request):
                 alone=runner.run(self.config,self.dataset,self.root/"r0",repeats=2,warmup=0,
                                  phase="strong-alone",inference_url=alone_url,
-                                 benchmark_token="test-secret-benchmark-token-987")
+                                 api_token="test-secret-benchmark-token-987")
             assert alone["phase"]=="strong-alone"
             comparison=compare_runs.compare(self.root/"r0",self.root/"r1")
             assert comparison["gold_delta_pp"]==0
@@ -119,7 +119,7 @@ class SmokeTests(unittest.TestCase):
              mock.patch.object(runner,"Telemetry",SimulatedTelemetry):
             report=runner.run(self.config,self.dataset,self.root/"confidence-free",
                               repeats=1,warmup=0,inference_url=url,
-                              benchmark_token="test-secret-benchmark-token-987")
+                              api_token="test-secret-benchmark-token-987")
         self.assertEqual(report["arms"]["cascade"]["escalation_rate"],0)
         self.assertTrue(validate_result.validate(self.root/"confidence-free")["valid"])
         rows=[json.loads(s) for s in (self.root/"confidence-free"/"measurements.jsonl").read_text().splitlines()]

@@ -10,7 +10,7 @@ The launcher takes an optional `--cuda-base IMAGE` flag and applies the image to
 
 ## Benchmark
 
-All benchmark configurations use the **same shared inference service** for the three arms (`fast_only`, `strong_only`, `cascade`). The launcher generates the benchmark token, prepares and verifies data, starts the backend services and validates the results.
+All benchmark configurations use the **same shared inference service** for the three arms (`fast_only`, `strong_only`, `cascade`). The launcher uses the same API token as inference, prepares and verifies data, starts benchmark-enabled services and validates results.
 
 ~~~bash
 # Smoke: measure routing, latency and decision quality on three synthetic cases.
@@ -41,7 +41,7 @@ Datasets are **model-independent**. A named benchmark defines the dataset, adapt
 
 ## Inference service
 
-Run Pico → Ultra as one public System One decision API without manually creating a benchmark token:
+Run Pico → Ultra as one System One decision API. The launcher uses `CASCADEONE_API_TOKEN` if exported and **does not read or write `.cascadeone/token`** in that case; otherwise it creates/reuses a private local file (`0600`).
 
 ~~~bash
 # Build/start the models and wait for the inference API to be healthy.
@@ -50,6 +50,7 @@ Run Pico → Ultra as one public System One decision API without manually creati
 
 # Send one policy decision to the cascade.
 curl -i -sS http://127.0.0.1:18358/v1/systemone \
+  -H "Authorization: Bearer ${CASCADEONE_API_TOKEN:-$(cat .cascadeone/token)}" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "basal-pico-ultra-h1",

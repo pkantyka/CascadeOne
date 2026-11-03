@@ -109,7 +109,7 @@ def check_prediction(request, result, *, fast):
 class Service:
     def __init__(self, cascade_path, benchmark=None, timeout=360,
                  min_speedup_pct=10.0, max_quality_loss_pp=2.0, max_p95_ratio=1.10,
-                 benchmark_token=None, strong_alone=False):
+                 api_token=None, benchmark_mode=False, strong_alone=False):
         path = Path(cascade_path).resolve()
         self.config = json.loads(path.read_text(encoding="utf-8"))
         if self.config.get("schema") != "cascadeone-cascade-v0.1":
@@ -117,9 +117,10 @@ class Service:
         if timeout <= 0:
             raise ValueError("timeout must be positive")
         self.config_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
-        if benchmark_token is not None and len(benchmark_token) < 16:
-            raise ValueError("benchmark token must contain at least 16 characters")
-        self.benchmark_token = benchmark_token
+        if not isinstance(api_token, str) or len(api_token) < 16:
+            raise ValueError("CASCADEONE_API_TOKEN (16+ characters) is required")
+        self.api_token = api_token
+        self.benchmark_mode = bool(benchmark_mode)
         self.strong_alone = strong_alone
         self.backend_attestations = {}
         self.engines = {
@@ -227,12 +228,8 @@ def make_handler(service):
             path = self.path.split("?", 1)[0]
             arm = "cascade"
             if path.startswith("/internal/benchmark/"):
-                if not service.benchmark_token:
+                if not service.benchmark_mode:
                     self.send_json(404, {"error": "unknown endpoint"})
-                    return
-                token = self.headers.get("Authorization", "").removeprefix("Bearer ")
-                if not hmac.compare_digest(token, service.benchmark_token):
-                    self.send_json(403, {"error": "benchmark authorization required"})
                     return
                 arm = path.rsplit("/", 1)[-1]
                 if arm not in service.engines:
@@ -240,6 +237,11 @@ def make_handler(service):
                     return
             elif path != "/v1/systemone":
                 self.send_json(404, {"error": "unknown endpoint"})
+                return
+            authorization = self.headers.get("Authorization", "")
+            if not hmac.compare_digest(authorization, "Bearer " + service.api_token):
+                self.send_json(401, {"error": "API authorization required"},
+                               {"WWW-Authenticate": "Bearer"})
                 return
             try:
                 raw_length = self.headers.get("Content-Length")
@@ -301,7 +303,8 @@ def main():
                       min_speedup_pct=args.min_speedup_pct,
                       max_quality_loss_pp=args.max_quality_loss_pp,
                       max_p95_ratio=args.max_p95_ratio,
-                      benchmark_token=os.environ.get("CASCADEONE_BENCHMARK_TOKEN") or None,
+                      api_token=os.environ.get("CASCADEONE_API_TOKEN"),
+                      benchmark_mode=os.environ.get("CASCADEONE_BENCHMARK_MODE") == "1",
                       strong_alone=args.strong_alone)
     for line in service.startup:
         logging.warning(line) if "[WARN]" in line else logging.info(line)

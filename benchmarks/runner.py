@@ -126,7 +126,7 @@ def load_dataset(path,adapter="typed_decisions_v1",selection=None,with_audit=Fal
 def timed(url,req,timeout,arm,token):
     """Measure client HTTP end-to-end plus engine-internal and backend HTTP timings."""
     if not token or len(token)<16:
-        raise ValueError("CASCADEONE_BENCHMARK_TOKEN (16+ chars) is required")
+        raise ValueError("CASCADEONE_API_TOKEN (16+ chars) is required")
     data=json.dumps(req,allow_nan=False).encode("utf-8")
     target=url.rstrip("/")+"/internal/benchmark/"+arm
     request=urllib.request.Request(target,data=data,headers={
@@ -190,14 +190,14 @@ def summarize(rows,phase):
                 metric["gold_delta_pp_vs_strong_only"]=None
     return result
 
-def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026,dataset_identity=None,adapter="typed_decisions_v1",selection=None,setup_identity=None,inference_url=None,benchmark_token=None):
+def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026,dataset_identity=None,adapter="typed_decisions_v1",selection=None,setup_identity=None,inference_url=None,api_token=None):
     config=json.loads(Path(config_path).read_text(encoding="utf-8"))
     if config.get("schema")!="cascadeone-cascade-v0.1": raise ValueError("wrong cascade schema")
     if repeats<1 or warmup<0: raise ValueError("invalid repeats/warmup")
     inference_url=inference_url or os.environ.get("CASCADEONE_INFERENCE_URL","http://inference:18358")
-    token=benchmark_token or os.environ.get("CASCADEONE_BENCHMARK_TOKEN")
+    token=api_token or os.environ.get("CASCADEONE_API_TOKEN")
     if not token or len(token)<16:
-        raise ValueError("CASCADEONE_BENCHMARK_TOKEN (16+ chars) is required to measure the shared inference engine")
+        raise ValueError("CASCADEONE_API_TOKEN (16+ chars) is required to measure the shared inference engine")
     selection=selection or {"type":"all"}
     rows,normalized_sha,normalization_audit=load_dataset(dataset_path,adapter,selection,with_audit=True)
     dest=Path(output)

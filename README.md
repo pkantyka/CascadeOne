@@ -29,12 +29,16 @@ On an **ARM64 NVIDIA GPU** host with Docker Compose v2 and sufficient VRAM, run 
 # Optionally run ALL external setups defined for this cascade.
 ./cascadeone benchmark evaluate --cascade basal-pico-ultra --suite external
 
+# Optional: supply an API token in the environment (never saved by the launcher).
+# Uncomment if you prefer environment-based credentials:
+# export CASCADEONE_API_TOKEN="$(openssl rand -hex 32)"
+
 # Start a single public System One API with the selected cascade.
 ./cascadeone inference start --cascade laya-clef \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 ~~~
 
-Omit `--cuda-base` to use the Compose default `nvcr.io/nvidia/vllm:26.07-py3`. This tag is **not** immutable; for strict reproducibility provide an approved, compatible image digest instead. The benchmark token is generated internally and is not part of the user command. Run only one reference stack at a time because they share host port `18358`.
+Omit `--cuda-base` to use the Compose default `nvcr.io/nvidia/vllm:26.07-py3`. This tag is **not** immutable; for strict reproducibility provide an approved, compatible image digest instead. The launcher uses **one API token** for inference and benchmarks: when `CASCADEONE_API_TOKEN` is set, it is used **without reading or writing `.cascadeone/token`**; otherwise the launcher creates/reuses that Git-ignored file with `0600` permissions. `POST /v1/systemone` requires `Authorization: Bearer <token>` in both modes. Benchmark-only endpoints are enabled only during benchmark runs. Run only one reference stack at a time because they share host port `18358`. To supply your own token without writing a token file, export `CASCADEONE_API_TOKEN` before running `./cascadeone`; API calls must include `Authorization: Bearer <token>`. See the [inference API example](inference/README.md#client-api).
 
 See [Main usage modes](#main-usage-modes), [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md).
 

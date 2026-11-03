@@ -31,8 +31,7 @@ Optionally pass a unique output root:
 The launcher builds the benchmark image, downloads and verifies the
 dataset, performs a dry-run without starting GPU models, then starts
 fast, strong and the shared inference service before executing the
-three-arm suite. It generates a benchmark token using `openssl`
-unless `CASCADEONE_BENCHMARK_TOKEN` is already set. See the
+three-arm suite. It generates an ephemeral `CASCADEONE_API_TOKEN` for the direct shell workflow unless supplied by the environment; the main `./cascadeone` launcher instead creates/reuses `.cascadeone/token` when no environment token is present. See the
 [benchmark guide](README.md) for the equivalent manual commands.
 
 Each benchmark records the three arms with paired uncertainty estimates.

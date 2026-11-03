@@ -137,7 +137,7 @@ class InferenceTests(unittest.TestCase):
             read_report(self.config_path, self.config, path)
 
     def test_server_routing_and_same_api_model(self):
-        service = Service(self.config_path)
+        service = Service(self.config_path, api_token="test-secret-token-123456")
         calls, fake = self.backend(.95)
         with mock.patch("inference.server.get_json", side_effect=fake):
             ok = service.infer(self.request)
@@ -152,7 +152,7 @@ class InferenceTests(unittest.TestCase):
             self.assertEqual(len(low_calls), 2)
 
     def test_http_systemone_and_models_endpoint(self):
-        service = Service(self.config_path)
+        service = Service(self.config_path, api_token="test-secret-token-123456")
         calls, fake = self.backend(.95)
         http = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(service))
         thread = threading.Thread(target=http.serve_forever, daemon=True)
@@ -166,22 +166,69 @@ class InferenceTests(unittest.TestCase):
             self.assertEqual(models[0]["name"], "mock-cascade")
             payload = json.dumps(self.request).encode()
             req = urllib.request.Request(url+"/v1/systemone", data=payload,
-                                         headers={"Content-Type": "application/json"})
+                                         headers={"Content-Type": "application/json", "Authorization": "Bearer " + service.api_token})
             with urllib.request.urlopen(req) as response:
                 self.assertEqual(response.headers["X-CascadeOne-Escalated"], "false")
                 result = json.load(response)
             self.assertEqual(set(result["answers"]), {"q"})
             self.assertEqual(len(calls), 1)
 
+    def test_http_token_is_required_and_benchmark_is_mode_gated(self):
+        import urllib.error
+        token = "test-secret-token-123456"
+        payload = json.dumps(self.request).encode()
+        for benchmark_mode in (False, True):
+            with self.subTest(benchmark_mode=benchmark_mode):
+                service = Service(self.config_path, api_token=token, benchmark_mode=benchmark_mode)
+                http = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(service))
+                worker = threading.Thread(target=http.serve_forever, daemon=True)
+                worker.start()
+                self.addCleanup(http.server_close)
+                self.addCleanup(http.shutdown)
+                url = "http://127.0.0.1:" + str(http.server_port)
+
+                def post(path, bearer=None):
+                    headers = {"Content-Type": "application/json"}
+                    if bearer is not None:
+                        headers["Authorization"] = "Bearer " + bearer
+                    req = urllib.request.Request(url + path, data=payload, headers=headers)
+                    return urllib.request.urlopen(req, timeout=5)
+
+                calls, fake = self.backend(.95)
+                with mock.patch("inference.server.get_json", side_effect=fake):
+                    for invalid in (None, "incorrect-api-token", ""):
+                        with self.assertRaises(urllib.error.HTTPError) as denied:
+                            post("/v1/systemone", invalid)
+                        self.assertEqual(denied.exception.code, 401)
+                    with post("/v1/systemone", token) as response:
+                        self.assertEqual(response.status, 200)
+                    path = "/internal/benchmark/cascade"
+                    if benchmark_mode:
+                        with self.assertRaises(urllib.error.HTTPError) as denied:
+                            post(path)
+                        self.assertEqual(denied.exception.code, 401)
+                        with post(path, token) as response:
+                            self.assertEqual(response.status, 200)
+                    else:
+                        with self.assertRaises(urllib.error.HTTPError) as hidden:
+                            post(path, token)
+                        self.assertEqual(hidden.exception.code, 404)
+
+    def test_server_refuses_missing_or_short_api_token(self):
+        for token in (None, "", "short"):
+            with self.subTest(token=token):
+                with self.assertRaisesRegex(ValueError, "CASCADEONE_API_TOKEN"):
+                    Service(self.config_path, api_token=token)
+
     def test_client_validation(self):
-        service = Service(self.config_path)
+        service = Service(self.config_path, api_token="test-secret-token-123456")
         with self.assertRaises(BadRequest):
             service.infer({"model": "another", "state": "x", "questions": self.request["questions"]})
         with self.assertRaises(BadRequest):
             service.infer({"state": "x", "questions": {}})
 
     def test_backend_identity_check(self):
-        service = Service(self.config_path)
+        service = Service(self.config_path, api_token="test-secret-token-123456")
         calls, fake = self.backend(.95)
         with mock.patch("inference.server.get_json", side_effect=fake):
             service.ensure_backends(wait_seconds=0)

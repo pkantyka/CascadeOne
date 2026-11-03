@@ -26,7 +26,7 @@ class ScriptTests(unittest.TestCase):
         fake.write_text(
             '#!/bin/sh\n'
             'printf "%s\\n" "$*" >> "$CASCADEONE_TEST_DOCKER_LOG"\n'
-            'printf "%s\\n" "$CASCADEONE_BENCHMARK_TOKEN" >> "$CASCADEONE_TEST_TOKEN_LOG"\n'
+            'printf "%s\\n" "$CASCADEONE_API_TOKEN" >> "$CASCADEONE_TEST_TOKEN_LOG"\n'
             'case "$*" in *" --verify"*) if [ "${CASCADEONE_TEST_FAIL_VERIFY:-0}" = 1 ]; then exit 9; fi ;; esac\n',
             encoding="utf-8",
         )
@@ -37,7 +37,7 @@ class ScriptTests(unittest.TestCase):
                         PATH=str(self.work) + os.pathsep + os.environ["PATH"],
                         CASCADEONE_TEST_DOCKER_LOG=str(self.log),
                         CASCADEONE_TEST_TOKEN_LOG=str(self.tokens),
-                        CASCADEONE_BENCHMARK_TOKEN="test-token-for-shell-integration-1234")
+                        CASCADEONE_API_TOKEN="test-token-for-shell-integration-1234")
 
     def launch(self, script, env=None, output=None):
         return subprocess.run([
@@ -66,7 +66,7 @@ class ScriptTests(unittest.TestCase):
                 self.assertIn("--suite " + suite + " --output-root", calls[6])
                 self.assertIn("--no-deps benchmark", calls[6])
                 self.assertTrue(all("--profile inference" in c for c in calls))
-                self.assertTrue(all(t == self.env["CASCADEONE_BENCHMARK_TOKEN"]
+                self.assertTrue(all(t == self.env["CASCADEONE_API_TOKEN"]
                                     for t in self.tokens.read_text().splitlines()))
 
     def test_verify_failure_never_starts_gpu_models(self):
@@ -91,7 +91,7 @@ class ScriptTests(unittest.TestCase):
         openssl.write_text('#!/bin/sh\nprintf "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\\n"\n')
         openssl.chmod(0o755)
         env = dict(self.env)
-        env.pop("CASCADEONE_BENCHMARK_TOKEN")
+        env.pop("CASCADEONE_API_TOKEN")
         result = self.launch("run_confidence_wide.sh", env)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(all(t == "0123456789abcdef" * 4
@@ -99,7 +99,7 @@ class ScriptTests(unittest.TestCase):
 
     def test_rejects_short_token_before_docker(self):
         result = self.launch("run_confidence_external.sh",
-                             dict(self.env, CASCADEONE_BENCHMARK_TOKEN="short"))
+                             dict(self.env, CASCADEONE_API_TOKEN="short"))
         self.assertEqual(result.returncode, 2)
         self.assertIn("at least 16", result.stderr)
         self.assertFalse(self.log.exists())

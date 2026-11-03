@@ -10,7 +10,7 @@ The launcher supplies `nvcr.io/nvidia/vllm:26.07-py3` as the default CUDA base. 
 
 ## Benchmark
 
-A benchmark compares `fast_only`, `strong_only` and `cascade` on the same requests. The `./cascadeone` launcher prepares the runner, creates the private benchmark token, starts the services, waits for readiness, runs the test and validates the output.
+A benchmark compares `fast_only`, `strong_only` and `cascade` on the same requests. The `./cascadeone` launcher prepares the runner, uses the shared API token, starts the services in benchmark mode, waits for readiness, runs the test and validates the output.
 
 ~~~bash
 # Measure the three-arm cascade on three bundled synthetic decisions.
@@ -34,7 +34,7 @@ Datasets are independent of models, but Laya's eligibility logic can reject unsu
 
 ## Inference service
 
-Start the same cascade as one HTTP System One decision model, without a benchmark token:
+Start the same cascade as one HTTP System One decision model. The **same API token** secures both modes: if `CASCADEONE_API_TOKEN` is exported, the launcher uses it and **does not read or write `.cascadeone/token`**; otherwise it creates/reuses that private file (`0600`).
 
 ~~~bash
 # Start both model services and the public inference API; wait until healthy.
@@ -43,6 +43,7 @@ Start the same cascade as one HTTP System One decision model, without a benchmar
 
 # Ask for a decision, not only a list of installed models.
 curl -i -sS http://127.0.0.1:18358/v1/systemone \
+  -H "Authorization: Bearer ${CASCADEONE_API_TOKEN:-$(cat .cascadeone/token)}" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "laya-clef-core",

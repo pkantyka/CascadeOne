@@ -48,7 +48,7 @@ services:
     working_dir: /workspace
     profiles: [benchmark]
     depends_on: [inference]
-    environment: ["CASCADEONE_BENCHMARK_TOKEN"]
+    environment: ["CASCADEONE_API_TOKEN"]
     volumes: ["../..:/workspace"]
     command: [python, benchmarks/runner.py, --inference-url, http://inference:18358, --setup, benchmarks/smoke-general__basal-pico-ultra__confidence-min-t0p656352/benchmark.json, --output, output/pico-smoke]
 
@@ -59,7 +59,7 @@ services:
     working_dir: /workspace
     volumes: ["../..:/workspace"]
     ports: ["127.0.0.1:18358:18358"]
-    environment: ["CASCADEONE_BENCHMARK_RUN", "CASCADEONE_BENCHMARK_TOKEN", "PYTHONUNBUFFERED=1"]
+    environment: ["CASCADEONE_BENCHMARK_RUN", "CASCADEONE_API_TOKEN", "CASCADEONE_BENCHMARK_MODE", "PYTHONUNBUFFERED=1"]
     command: [python, inference/server.py, --cascade, cascades/basal-pico-ultra/benchmark.json, --host, 0.0.0.0, --port, "18358"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18358/health', timeout=3)"]

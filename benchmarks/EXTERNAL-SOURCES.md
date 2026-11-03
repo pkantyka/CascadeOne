@@ -37,8 +37,7 @@ Optionally pass a unique output root:
 The launcher downloads and verifies original sources, performs the
 dry-run before starting GPU models, then starts fast, strong and the
 shared inference service and executes all three-arm benchmarks. It
-generates a random benchmark token using `openssl` unless
-`CASCADEONE_BENCHMARK_TOKEN` is supplied. See the
+generates a temporary `CASCADEONE_API_TOKEN` using `openssl` unless it is already supplied by the environment. The recommended `./cascadeone` launcher uses `.cascadeone/token` when the environment variable is absent. See the
 [benchmark guide](README.md) for manual execution.
 
 All eleven better-jev-bench held-out JSONL files are downloadable.

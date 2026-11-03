@@ -11,18 +11,20 @@ if [ -e "$DEST" ]; then
   echo "Output path already exists: $DEST" >&2
   exit 2
 fi
-if [ -z "${CASCADEONE_BENCHMARK_TOKEN:-}" ]; then
+if [ -z "${CASCADEONE_API_TOKEN:-}" ]; then
   if ! command -v openssl >/dev/null 2>&1; then
-    echo "Set CASCADEONE_BENCHMARK_TOKEN (16+ chars) or install openssl." >&2
+    echo "Set CASCADEONE_API_TOKEN (16+ chars) or install openssl." >&2
     exit 2
   fi
-  CASCADEONE_BENCHMARK_TOKEN=$(openssl rand -hex 32)
+  CASCADEONE_API_TOKEN=$(openssl rand -hex 32)
 fi
-if [ "${#CASCADEONE_BENCHMARK_TOKEN}" -lt 16 ]; then
-  echo "CASCADEONE_BENCHMARK_TOKEN must be at least 16 characters." >&2
+if [ "${#CASCADEONE_API_TOKEN}" -lt 16 ]; then
+  echo "CASCADEONE_API_TOKEN must be at least 16 characters." >&2
   exit 2
 fi
-export CASCADEONE_BENCHMARK_TOKEN
+export CASCADEONE_API_TOKEN
+CASCADEONE_BENCHMARK_MODE=1
+export CASCADEONE_BENCHMARK_MODE
 
 # Build the data/benchmark image without starting either GPU model.
 docker compose -f "$COMPOSE" --profile inference --profile benchmark build benchmark
