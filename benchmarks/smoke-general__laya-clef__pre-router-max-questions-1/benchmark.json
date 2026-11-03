@@ -1,7 +1,7 @@
 {
   "schema": "cascadeone-benchmark-setup-v1",
   "id": "smoke-general__laya-clef__pre-router-max-questions-1",
-  "cascade": "cascades/laya-clef/cascade-pre-router.yaml",
+  "cascade": "cascades/laya-clef/pre-router/cascade.yaml",
   "dataset": {
     "id": "smoke-general-v1"
   },

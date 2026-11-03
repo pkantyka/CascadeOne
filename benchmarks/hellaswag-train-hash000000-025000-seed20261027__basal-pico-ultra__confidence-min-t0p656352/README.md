@@ -3,7 +3,7 @@
 One benchmark = source/split + model pair + routing policy.
 
 - Original dataset ID: hellaswag-train-v1.
-- Cascade configuration: cascades/basal-pico-ultra/cascade.yaml.
+- Cascade configuration: cascades/basal-pico-ultra/confidence/cascade.yaml.
 - Routing policy: confidence-min-t0p656352.
 - Dataset selection: {"type":"hash_range","start":0.0,"end":0.025,"seed":20261027}.
 - Every execution compares fast_only, strong_only and cascade on identical requests.

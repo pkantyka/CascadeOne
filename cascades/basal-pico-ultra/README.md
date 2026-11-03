@@ -2,7 +2,7 @@
 
 The reference cascade runs **Basal Pico (fast model)** and **Basal Ultra (strong model)** with the frozen minimum-confidence threshold **0.6563522219657898**. The independently pinned `basal-serve` versions are 2.3.2 (Pico) and 2.1.0 (Ultra), in `eager` mode.
 
-The logical model and routing definition is [`cascade.yaml`](cascade.yaml); Docker service deployment is defined in [`compose.yaml`](compose.yaml).
+The reference [confidence variant](confidence/cascade.yaml) owns its complete [Docker Compose definition](confidence/compose.yaml). Future routing variants can be added as sibling directories with independent definitions and Compose files.
 
 ## Requirements
 
@@ -16,26 +16,26 @@ All benchmark configurations use the **same shared inference service** for the t
 
 ~~~bash
 # Smoke: measure routing, latency and decision quality on three synthetic cases.
-./cascadeone benchmark smoke --cascade basal-pico-ultra \
+./cascadeone benchmark smoke --cascade basal-pico-ultra/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
 # See the datasets and named benchmark setups for this model pair.
-./cascadeone benchmark list --cascade basal-pico-ultra
+./cascadeone benchmark list --cascade basal-pico-ultra/confidence
 
 # Evaluate the cascade on ONE named Civil Comments held-out benchmark.
 # No --suite needed: --benchmark selects precisely one configured experiment.
-./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence \
   --benchmark better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352
 
 # Evaluate the SAME cascade on a DIFFERENT named dataset (BANKING77 test).
-./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence \
   --benchmark banking77-test__basal-pico-ultra__confidence-min-t0p656352
 
 # OPTIONAL: run the entire external group of registered benchmark setups.
-./cascadeone benchmark evaluate --cascade basal-pico-ultra --suite external
+./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence --suite external
 
 # Alternative: supply a dataset and adapter directly, without a named setup.
-./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence \
   --dataset-id bjb-civil-comments-heldout-v1 --adapter better_jev_heldout_gold_v1
 ~~~
 
@@ -47,7 +47,7 @@ Run Pico → Ultra as one System One decision API. The launcher uses `CASCADEONE
 
 ~~~bash
 # Build/start the models and wait for the inference API to be healthy.
-./cascadeone inference start --cascade basal-pico-ultra \
+./cascadeone inference start --cascade basal-pico-ultra/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
 # Send one policy decision to the cascade.
@@ -67,7 +67,7 @@ curl -i -sS http://127.0.0.1:18358/v1/systemone \
   }'
 
 # Stop the Basal containers.
-./cascadeone inference stop --cascade basal-pico-ultra
+./cascadeone inference stop --cascade basal-pico-ultra/confidence
 ~~~
 
-The HTTP response includes `answers.refund.probabilities` and an `X-CascadeOne-Escalated` header indicating Ultra execution. Only one reference stack should bind `127.0.0.1:18358` at a time. For logs, run `./cascadeone inference logs --cascade basal-pico-ultra`. See [inference API](../../inference/README.md) and [benchmark methodology](../../benchmarks/README.md) for detailed contracts and limitations.
+The HTTP response includes `answers.refund.probabilities` and an `X-CascadeOne-Escalated` header indicating Ultra execution. Only one reference stack should bind `127.0.0.1:18358` at a time. For logs, run `./cascadeone inference logs --cascade basal-pico-ultra/confidence`. See [inference API](../../inference/README.md) and [benchmark methodology](../../benchmarks/README.md) for detailed contracts and limitations.

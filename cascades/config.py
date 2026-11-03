@@ -34,6 +34,6 @@ def load_cascade(path: str | Path) -> dict:
 def list_cascades(root: str | Path):
     """Yield documented, launchable reference cascade profiles."""
     root = Path(root)
-    for path in sorted((root / "cascades").glob("*/cascade.yaml")):
+    for path in sorted((root / "cascades").glob("*/*/cascade.yaml")):
         if (path.parent / "compose.yaml").is_file():
-            yield path.parent.name, load_cascade(path)
+            yield path.parent.relative_to(root / "cascades").as_posix(), load_cascade(path)

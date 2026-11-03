@@ -1,7 +1,7 @@
 #!/bin/sh
 # Run from the CascadeOne Community repository root on an ARM64 NVIDIA GPU host.
 set -eu
-COMPOSE=cascades/basal-pico-ultra/compose.yaml
+COMPOSE=cascades/basal-pico-ultra/confidence/compose.yaml
 DEST=${1:-output/confidence-external-$(date -u +%Y%m%dT%H%M%SZ)-$$}
 if [ ! -f "$COMPOSE" ]; then
   echo "Run this script from the CascadeOne Community repository root." >&2

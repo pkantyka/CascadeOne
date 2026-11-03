@@ -12,16 +12,16 @@ From the Community repository root on a compatible NVIDIA ARM64 GPU host, use th
 
 ~~~bash
 # Start Laya and Clef, wait until the HTTP API is ready.
-./cascadeone inference start --cascade laya-clef --cuda-base nvcr.io/nvidia/vllm:26.07-py3
+./cascadeone inference start --cascade laya-clef/confidence --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
 # Or start Basal Pico and Ultra (after stopping the other stack).
-./cascadeone inference start --cascade basal-pico-ultra
+./cascadeone inference start --cascade basal-pico-ultra/confidence
 
 # Inspect the inference service logs for the selected cascade.
-./cascadeone inference logs --cascade basal-pico-ultra
+./cascadeone inference logs --cascade basal-pico-ultra/confidence
 ~~~
 
-The image shown is an example **tag**, not an immutable digest; for strict reproduction use an approved, compatible image digest. The public endpoint is host-local at `http://127.0.0.1:18358`. Do not run both reference stacks simultaneously: both use that port. See the [Laya → Clef](../cascades/laya-clef/README.md) and [Basal Pico → Ultra](../cascades/basal-pico-ultra/README.md) guides for prerequisites.
+The image shown is an example **tag**, not an immutable digest; for strict reproduction use an approved, compatible image digest. The public endpoint is host-local at `http://127.0.0.1:18358`. Do not run multiple variants simultaneously: they all bind that host port. See the [Laya → Clef](../cascades/laya-clef/README.md) and [Basal Pico → Ultra](../cascades/basal-pico-ultra/README.md) guides for prerequisites.
 
 The same service can run without Compose if the model-backend URLs in the selected cascade YAML resolve from that process:
 
@@ -29,7 +29,7 @@ The same service can run without Compose if the model-backend URLs in the select
 # Advanced: launch the Python proxy after starting both backends manually.
 # Install PyYAML==6.0.2 and export CASCADEONE_API_TOKEN first.
 # CASCADEONE_API_TOKEN must be exported; standalone mode does not generate it.
-python inference/server.py --cascade cascades/laya-clef/cascade.yaml --host 127.0.0.1 --port 18358
+python inference/server.py --cascade cascades/laya-clef/confidence/cascade.yaml --host 127.0.0.1 --port 18358
 ~~~
 
 The standalone CLI requires **Python 3.12** but no extra API framework packages. The server waits up to 600 seconds for model services and verifies declared backend identity where supported.
@@ -43,7 +43,7 @@ The same `CASCADEONE_API_TOKEN` authorizes both `POST /v1/systemone` and benchma
 export CASCADEONE_API_TOKEN="$(openssl rand -hex 32)"
 
 # Launch using that token instead of a local file.
-./cascadeone inference start --cascade laya-clef
+./cascadeone inference start --cascade laya-clef/confidence
 ~~~
 
 The benchmark endpoints `/internal/benchmark/*` additionally require the launcher to start inference with benchmark mode enabled. They return `404` in normal inference mode, even with a valid token. The local reference deployment has no TLS; use trusted local networking only.
@@ -93,14 +93,14 @@ same filesystem visible to the inference service. In Compose, set
 ```bash
 # Advanced manual Compose start: export CASCADEONE_API_TOKEN first.
 CASCADEONE_BENCHMARK_RUN=output/benchmarks/MY-VERIFIED-RUN \
-docker compose -f cascades/laya-clef/compose.yaml --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
+docker compose -f cascades/laya-clef/confidence/compose.yaml --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
 ```
 
 Or outside Compose:
 
 ```bash
 python inference/server.py \
-  --cascade cascades/laya-clef/cascade.yaml \
+  --cascade cascades/laya-clef/confidence/cascade.yaml \
   --benchmark output/benchmarks/MY-VERIFIED-RUN
 ```
 

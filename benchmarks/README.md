@@ -19,7 +19,7 @@ benchmarks/<dataset-and-split>__<models>__<strategy>/
 
 The strategy name includes the confidence aggregation and shortened
 threshold where relevant. The exact threshold, **model revisions and
-per-model backend profiles** live in the referenced cascade YAML (`cascades/<name>/cascade.yaml`). Benchmark setups themselves remain JSON.
+per-model backend profiles** live in the referenced cascade YAML (`cascades/<pair>/<variant>/cascade.yaml`). Benchmark setups themselves remain JSON.
 Dataset download and checksum verification belong in `datasets/`;
 selection, conversion, normalization and Gold interpretation belong
 to the benchmark setup, not the runtime.
@@ -39,27 +39,27 @@ The root-level **`./cascadeone` launcher** is the recommended entry point. Disco
 
 ~~~bash
 # Show registered benchmark configurations (ID, dataset ID and optional group); no GPU.
-./cascadeone benchmark list --cascade basal-pico-ultra
+./cascadeone benchmark list --cascade basal-pico-ultra/confidence
 
 # Run a three-case smoke benchmark, using an explicit example CUDA base image.
-./cascadeone benchmark smoke --cascade basal-pico-ultra \
+./cascadeone benchmark smoke --cascade basal-pico-ultra/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
 # Run ONE registered dataset/adapter/cascade experiment; --suite is optional.
-./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence \
   --benchmark banking77-test__basal-pico-ultra__confidence-min-t0p656352
 
 # OPTIONAL: run every compatible registered benchmark in the external group.
-./cascadeone benchmark evaluate --cascade basal-pico-ultra --suite external
+./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence --suite external
 
 # Instead of a named setup, use ANY registered dataset and compatible adapter.
-./cascadeone benchmark evaluate --cascade laya-clef \
+./cascadeone benchmark evaluate --cascade laya-clef/confidence \
   --dataset-id bjb-civil-comments-heldout-v1 --adapter better_jev_heldout_gold_v1
 ~~~
 
 **`--suite` is never required for an individual benchmark.** Named setups are independent from their source datasets: `--benchmark` selects a saved configuration, `--dataset-id` and `--adapter` build a direct experiment without creating a named setup, and `--suite` batches multiple matching named setups for one cascade. Use `./cascadeone --help` for `--output`, `--repeats` and `--cuda-base`. A tag like `nvcr.io/nvidia/vllm:26.07-py3` is not an immutable digest.
 
-The launcher uses the same System One inference HTTP engine for all three arms and leaves it running after a benchmark so further runs can reuse the models. Stop it with `./cascadeone inference stop --cascade basal-pico-ultra` (or the selected cascade name). It does not silently exclude unsupported requests; model eligibility, Gold provenance and possible model pretraining overlap remain important caveats.
+The launcher uses the same System One inference HTTP engine for all three arms and leaves it running after a benchmark so further runs can reuse the models. Stop it with `./cascadeone inference stop --cascade basal-pico-ultra/confidence` (or the selected cascade name). It does not silently exclude unsupported requests; model eligibility, Gold provenance and possible model pretraining overlap remain important caveats.
 
 The older shell helpers `benchmarks/run_confidence_wide.sh` and `benchmarks/run_confidence_external.sh` remain available for direct Compose workflows. Prefer the root launcher for new interactive use; advanced details are in [dataset acquisition](../datasets/README.md) and [inference internals](../inference/README.md).
 

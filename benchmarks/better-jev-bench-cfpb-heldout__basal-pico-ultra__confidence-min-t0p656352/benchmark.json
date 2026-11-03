@@ -1,7 +1,7 @@
 {
   "schema": "cascadeone-benchmark-setup-v1",
   "id": "better-jev-bench-cfpb-heldout__basal-pico-ultra__confidence-min-t0p656352",
-  "cascade": "cascades/basal-pico-ultra/cascade.yaml",
+  "cascade": "cascades/basal-pico-ultra/confidence/cascade.yaml",
   "dataset": {
     "id": "bjb-cfpb-heldout-v1"
   },

@@ -6,12 +6,12 @@ usage() {
   cat <<'USAGE'
 Usage:
   ./cascadeone cascade list      # list available cascade definitions
-  ./cascadeone benchmark list     --cascade PAIR [--suite NAME]
-  ./cascadeone benchmark smoke    --cascade PAIR [--repeats N] [--cuda-base IMAGE]
-  ./cascadeone benchmark evaluate --cascade PAIR [--benchmark ID | --dataset-id ID --adapter NAME | --suite NAME] [options]
-  ./cascadeone inference start|stop|logs --cascade PAIR [--cuda-base IMAGE]
+  ./cascadeone benchmark list     --cascade PAIR/VARIANT [--suite NAME]
+  ./cascadeone benchmark smoke    --cascade PAIR/VARIANT [--repeats N] [--cuda-base IMAGE]
+  ./cascadeone benchmark evaluate --cascade PAIR/VARIANT [--benchmark ID | --dataset-id ID --adapter NAME | --suite NAME] [options]
+  ./cascadeone inference start|stop|logs --cascade PAIR/VARIANT [--cuda-base IMAGE]
 
-PAIR: laya-clef | basal-pico-ultra
+PAIR/VARIANT: e.g. laya-clef/confidence | laya-clef/pre-router | basal-pico-ultra/confidence
 
 Benchmark options:
   --benchmark ID     Run a named benchmark configuration (the directory name under benchmarks/).
@@ -66,7 +66,7 @@ while [ "$#" -gt 0 ]; do
     *) die "unknown option: $1" ;;
   esac
 done
-case "$cascade" in laya-clef|basal-pico-ultra) ;; *) [ "$mode:$action" = cascade:list ] || die "invalid/missing --cascade" ;; esac
+
 case "$mode:$action" in
   cascade:list|benchmark:list|benchmark:smoke|benchmark:evaluate|inference:start|inference:stop|inference:logs) ;;
   *) die "unsupported command $mode $action" ;;
@@ -88,9 +88,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path.cwd() / "cascades"))
 try:
-    from config import list_cascades
+    import yaml
 except ImportError as exc:
     raise SystemExit("cascade list requires PyYAML: python3 -m pip install PyYAML==6.0.2") from exc
+from config import list_cascades
 
 rows = [(name, config["fast"]["model_id"], config["strong"]["model_id"],
          config["routing"]["type"]) for name, config in list_cascades(Path.cwd())]
@@ -103,7 +104,17 @@ PY
   exit 0
 fi
 
-[ -f "cascades/$cascade/compose.yaml" ] || die "missing cascade Compose definition"
+# Resolve a self-contained pair/variant. Reject traversal and arbitrary shell paths.
+case "$cascade" in
+  */*)
+    pair=${cascade%/*}; variant=${cascade#*/}
+    case "$pair" in ''|*[!A-Za-z0-9_-]*) die "invalid --cascade pair: $pair" ;; esac
+    case "$variant" in ''|*[!A-Za-z0-9_-]*) die "invalid --cascade variant: $variant" ;; esac
+    ;;
+  *) die "--cascade requires PAIR/VARIANT (see ./cascadeone cascade list)" ;;
+esac
+[ -f "cascades/$cascade/cascade.yaml" ] || die "missing cascade.yaml for $cascade"
+[ -f "cascades/$cascade/compose.yaml" ] || die "missing compose.yaml for $cascade"
 compose_file="cascades/$cascade/compose.yaml"
 
 if [ "$mode" = inference ] || [ "$action" = list ]; then
@@ -155,7 +166,7 @@ PY
 fi
 
 if [ "$mode" = benchmark ]; then
-  [ -z "$output" ] && output="output/benchmarks/$cascade-$action-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  [ -z "$output" ] && { cascade_slug=$(printf "%s" "$cascade" | tr "/" "-"); output="output/benchmarks/$cascade_slug-$action-$(date -u +%Y%m%dT%H%M%SZ)-$$"; }
   case "$output" in
     /*|.|..|../*|*/../*|*/..|*/./*|*/.|*[[:space:]]*) die "--output must be a relative, simple path inside the repository" ;;
   esac
@@ -192,6 +203,40 @@ if not any(s.get("suite")==suite and s.get("cascade")==f"cascades/{cascade}/casc
 PY
 fi
 
+# Resolve the selected variant's named setups without hardcoded model-pair rules.
+lookup_setup() {
+  command -v python3 >/dev/null 2>&1 || die "python3 required for benchmark metadata"
+  python3 - "$cascade" "$1" "$2" <<'PY'
+import json, pathlib, sys
+cascade, suite, dataset_id = sys.argv[1:]
+matches = []
+for path in sorted(pathlib.Path("benchmarks").glob("*/benchmark.json")):
+    setup = json.loads(path.read_text(encoding="utf-8"))
+    if setup.get("cascade") != f"cascades/{cascade}/cascade.yaml":
+        continue
+    if suite and setup.get("suite") != suite:
+        continue
+    if dataset_id and setup.get("dataset", {}).get("id") != dataset_id:
+        continue
+    matches.append(path)
+if len(matches) > 1:
+    sys.exit("ambiguous benchmark setups for selected cascade, suite and dataset")
+if matches:
+    print(matches[0])
+PY
+}
+if [ "$mode:$action" = benchmark:smoke ]; then
+  setup=$(lookup_setup smoke smoke-general-v1) ||
+    die "failed to resolve smoke benchmark for $cascade"
+  [ -n "$setup" ] || die "no smoke benchmark setup defined for $cascade"
+fi
+default_setup=
+if [ "$mode:$action" = benchmark:evaluate ] &&
+   [ -z "$suite$benchmark$dataset$adapter" ]; then
+  default_setup=$(lookup_setup external bjb-civil-comments-heldout-v1) ||
+    die "failed to resolve default benchmark for $cascade"
+fi
+
 command -v docker >/dev/null 2>&1 || die "Docker is required"
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
 
@@ -206,8 +251,8 @@ fi
 compose() { docker compose -f "$compose_file" "$@"; }
 bench() { compose --profile inference --profile benchmark run --rm --no-deps benchmark "$@"; }
 start() {
-  info "Building and starting the two backends plus inference; waiting for readiness"
-  compose --profile inference up -d --build --wait --wait-timeout 660 fast strong inference
+  info "Building and starting all services of the selected variant (except benchmark); waiting for readiness"
+  compose --profile inference up -d --build --wait --wait-timeout 660
 }
 setup_api_token() {
   if [ "${CASCADEONE_API_TOKEN+x}" = x ]; then
@@ -293,11 +338,6 @@ fi
 start
 info "Benchmark: $cascade / $action / output $output"
 if [ "$action" = smoke ]; then
-  if [ "$cascade" = laya-clef ]; then
-    setup=benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json
-  else
-    setup=benchmarks/smoke-general__basal-pico-ultra__confidence-min-t0p656352/benchmark.json
-  fi
   bench python benchmarks/runner.py --setup "$setup" --output "$output" --repeats "$repeats"
 elif [ -n "$suite" ]; then
   bench python benchmarks/run_confidence_wide.py --suite "$suite" --cascade "$cascade" --output-root "$output" --repeats "$repeats"
@@ -308,14 +348,12 @@ elif [ -n "$adapter" ]; then
     --cascade "cascades/$cascade/cascade.yaml" \
     --dataset-id "$dataset" --adapter "$adapter" \
     --output "$output" --repeats "$repeats"
-elif [ "$cascade" = laya-clef ]; then
-  bench python benchmarks/runner.py \
-    --cascade cascades/laya-clef/cascade.yaml \
-    --dataset-id "$dataset" --adapter better_jev_heldout_gold_v1 \
-    --output "$output" --repeats "$repeats"
+elif [ -n "$default_setup" ]; then
+  bench python benchmarks/runner.py --setup "$default_setup" --output "$output" --repeats "$repeats"
 else
   bench python benchmarks/runner.py \
-    --setup benchmarks/better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352/benchmark.json \
+    --cascade "cascades/$cascade/cascade.yaml" \
+    --dataset-id "$dataset" --adapter better_jev_heldout_gold_v1 \
     --output "$output" --repeats "$repeats"
 fi
 

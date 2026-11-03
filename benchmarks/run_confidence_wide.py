@@ -92,7 +92,7 @@ def main():
     p.add_argument("--output-root",type=Path)
     p.add_argument("--suite",choices=("wide","external","source","smoke"),default="wide")
     p.add_argument("--setup-id",help="run one setup from the selected suite")
-    p.add_argument("--cascade",choices=("laya-clef","basal-pico-ultra"),help="limit suite to one cascade")
+    p.add_argument("--cascade",help="limit suite to one cascade variant (PAIR/VARIANT)")
     p.add_argument("--repeats",type=int,default=2)
     p.add_argument("--warmup",type=int,default=3)
     # A benchmark always runs all three arms. Strong-alone is separate

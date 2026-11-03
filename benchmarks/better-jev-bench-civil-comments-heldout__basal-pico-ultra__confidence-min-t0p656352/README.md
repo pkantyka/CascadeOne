@@ -3,7 +3,7 @@
 One benchmark = source/split + model pair + routing policy.
 
 - Original dataset ID: bjb-civil-comments-heldout-v1.
-- Cascade configuration: cascades/basal-pico-ultra/cascade.yaml.
+- Cascade configuration: cascades/basal-pico-ultra/confidence/cascade.yaml.
 - Routing policy: confidence-min-t0p656352.
 - Dataset selection: {"type":"all"}.
 - Every execution compares fast_only, strong_only and cascade on identical requests.

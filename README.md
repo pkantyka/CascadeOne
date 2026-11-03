@@ -17,27 +17,27 @@ On an **ARM64 NVIDIA GPU** host with Docker Compose v2 and sufficient VRAM, run 
 ./cascadeone cascade list
 
 # List available named benchmarks for a cascade (no GPU needed).
-./cascadeone benchmark list --cascade basal-pico-ultra
+./cascadeone benchmark list --cascade basal-pico-ultra/confidence
 
 # Run the small smoke benchmark for Laya → Clef.
 # --cuda-base overrides the NVIDIA image for both backends; this tag is an example.
-./cascadeone benchmark smoke --cascade laya-clef \
+./cascadeone benchmark smoke --cascade laya-clef/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
 # Evaluate Basal Pico → Ultra on one named held-out benchmark.
 # No --suite needed: this is a single dataset, not a batch.
-./cascadeone benchmark evaluate --cascade basal-pico-ultra \
+./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence \
   --benchmark better-jev-bench-civil-comments-heldout__basal-pico-ultra__confidence-min-t0p656352
 
 # Optionally run ALL external setups defined for this cascade.
-./cascadeone benchmark evaluate --cascade basal-pico-ultra --suite external
+./cascadeone benchmark evaluate --cascade basal-pico-ultra/confidence --suite external
 
 # Optional: supply an API token in the environment (never saved by the launcher).
 # Uncomment if you prefer environment-based credentials:
 # export CASCADEONE_API_TOKEN="$(openssl rand -hex 32)"
 
 # Start a single public System One API with the selected cascade.
-./cascadeone inference start --cascade laya-clef \
+./cascadeone inference start --cascade laya-clef/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 ~~~
 
@@ -47,9 +47,9 @@ See [Main usage modes](#main-usage-modes), [Laya → Clef](cascades/laya-clef/RE
 
 ## Cascade definitions
 
-Each launchable cascade has a **YAML** definition at `cascades/<name>/cascade.yaml`, specifying its model pair, pinned model/backend revisions and routing policy. `cascades/<name>/compose.yaml` separately defines how its services run in Docker. An additional routing variant is stored as [`cascades/laya-clef/cascade-pre-router.yaml`](cascades/laya-clef/cascade-pre-router.yaml); `cascade list` shows the two default launchable profiles, not every routing variant.
+Each independently launchable variant lives in `cascades/<pair>/<variant>/`, containing its own **`cascade.yaml`** (models, backend revisions, routing policy) and complete **`compose.yaml`** (Docker services). Compose files are not merged or inherited between variants. The launcher starts the services enabled by the chosen variant's Compose file (excluding benchmark-only services), so adding a router service does not require changing launcher source. Model Dockerfile recipes may be shared within a pair, but each variant's service topology is explicit. `./cascadeone cascade list` discovers all valid pair/variant directories, including [Laya → Clef pre-router](cascades/laya-clef/pre-router/cascade.yaml).
 
-Benchmark configurations remain **JSON** (`benchmarks/<benchmark-id>/benchmark.json`), referencing a YAML cascade and defining a dataset, adapter and selection. Run `./cascadeone cascade list` to see the launchable profiles. This local listing command requires Python 3 and PyYAML (`python3 -m pip install PyYAML==6.0.2`); no Docker or GPU is needed. The inference and benchmark Docker images install the pinned YAML parser automatically.
+Benchmark configurations remain **JSON** (`benchmarks/<benchmark-id>/benchmark.json`), referencing an exact pair/variant YAML path and defining a dataset, adapter and selection. Select a variant with `--cascade laya-clef/pre-router` or `--cascade basal-pico-ultra/confidence`. Run `./cascadeone cascade list` to see all available profiles. The old pair-only `--cascade laya-clef` and `--cascade basal-pico-ultra` names are intentionally replaced by explicit `PAIR/VARIANT` selectors. This local listing command requires Python 3 and PyYAML (`python3 -m pip install PyYAML==6.0.2`); no Docker or GPU is needed. The inference and benchmark Docker images install the pinned YAML parser automatically.
 
 **Reproducibility note:** Converting cascade definitions from JSON to YAML changes their file SHA-256. Existing reports produced with the former JSON files will not match the new definition hashes; rerun benchmarks rather than bypassing the identity check.
 
@@ -91,7 +91,7 @@ flowchart TD
 ## What is included
 
 - **Launcher:** [`./cascadeone`](cascadeone) lists YAML cascades with `cascade list`, starts inference or benchmarks, accepts an optional `--cuda-base` and batches tests only when `--suite` is explicitly provided.
-- **Two reference cascades:** [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md), with versioned model configurations and Docker Compose definitions.
+- **Three launchable variants of two model pairs:** [Laya → Clef](cascades/laya-clef/README.md) (`confidence`, `pre-router`) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md) (`confidence`), each with its own YAML definition and complete Docker Compose file.
 - **A policy-driven cascade runtime:** [cascades/runtime.py](cascades/runtime.py) and [cascades/policies.py](cascades/policies.py).
 - **Local inference API:** [inference/](inference/README.md) serves a configured cascade through one System One endpoint, with validated benchmark-based startup warnings.
 - **A source dataset registry:** [datasets/](datasets/README.md) acquires immutable, pinned source files and verifies SHA-256. It does not silently filter, split or transform them.
@@ -108,7 +108,7 @@ Model identity alone is not a complete execution profile: cascade definitions pi
 
 The same cascade can be evaluated on **many independent datasets**. `--cascade` chooses the model pair and routing profile; `--benchmark` selects one named experiment (dataset, adapter and selection), and `--dataset-id` with `--adapter` allows running a new dataset directly. **`--suite` is optional**: specify it only to execute a batch of named setups. The runner measures `fast_only`, `strong_only` and `cascade` on identical requests.
 
-The two reference modes are:
+The two main usage modes are:
 
 - **Benchmark:** `./cascadeone benchmark smoke|evaluate ...`. Measures quality, latency and escalation; a negative speedup or quality regression is a valid result. [Benchmark methodology](benchmarks/README.md).
 - **Inference:** `./cascadeone inference start ...`. Exposes one System One HTTP model at `POST /v1/systemone`, with `GET /v1/models` and `GET /health`. [API reference](inference/README.md).

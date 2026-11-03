@@ -150,14 +150,15 @@ if __name__ == "__main__":
 
 class ComposeQuickstartTests(unittest.TestCase):
     def test_laya_cuda_image_has_nonempty_default(self):
-        compose = (ROOT / "cascades/laya-clef/compose.yaml").read_text()
+        compose = (ROOT / "cascades/laya-clef/confidence/compose.yaml").read_text()
         dockerfile = (ROOT / "cascades/laya-clef/Dockerfile").read_text()
         self.assertIn("${CASCADEONE_CUDA_BASE:-nvcr.io/nvidia/vllm:26.07-py3}", compose)
         self.assertIn("ARG CUDA_BASE=nvcr.io/nvidia/vllm:26.07-py3", dockerfile)
         self.assertNotIn("CASCADEONE_CUDA_BASE:?", compose)
 
     def test_both_inference_services_have_healthchecks(self):
-        for cascade in ("laya-clef", "basal-pico-ultra"):
+        for cascade in ("laya-clef/confidence", "laya-clef/pre-router",
+                        "basal-pico-ultra/confidence"):
             compose = (ROOT / "cascades" / cascade / "compose.yaml").read_text()
             with self.subTest(cascade=cascade):
                 self.assertIn("    healthcheck:", compose)

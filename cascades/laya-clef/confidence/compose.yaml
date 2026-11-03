@@ -1,0 +1,60 @@
+name: cascadeone-community-laya-clef-confidence
+x-common: &common
+  platform: linux/arm64
+  build:
+    context: ../../..
+    dockerfile: cascades/laya-clef/Dockerfile
+    args:
+      CUDA_BASE: "${CASCADEONE_CUDA_BASE:-nvcr.io/nvidia/vllm:26.07-py3}"
+  image: cascadeone-community-laya-clef:v0.1
+  working_dir: /workspace
+  gpus: all
+  ipc: host
+  shm_size: "8gb"
+  init: true
+  restart: "no"
+  environment:
+    PYTHONPATH: /workspace/src
+    HF_HOME: /cache/huggingface
+    PYTHONUNBUFFERED: "1"
+  volumes:
+    - ../../..:/workspace
+    - ${HOME}/.cache/huggingface:/cache/huggingface
+services:
+  fast:
+    <<: *common
+    command: [python, cascades/laya-clef/serve_backend.py, --which, fast]
+  strong:
+    <<: *common
+    command: [python, cascades/laya-clef/serve_backend.py, --which, strong]
+  benchmark:
+    image: cascadeone-community-benchmark:pyarrow21
+    build:
+      context: ../../..
+      dockerfile: benchmarks/Dockerfile
+    gpus: all
+    working_dir: /workspace
+    profiles: [benchmark]
+    depends_on: [inference]
+    environment: ["CASCADEONE_API_TOKEN"]
+    volumes: ["../../..:/workspace"]
+    command: [python, benchmarks/runner.py, --inference-url, http://inference:18358, --setup, benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json, --output, output/laya-smoke]
+
+  inference:
+    image: cascadeone-community-inference:pyyaml602
+    build:
+      context: ../../..
+      dockerfile: inference/Dockerfile
+    profiles: [inference]
+    depends_on: [fast, strong]
+    working_dir: /workspace
+    volumes: ["../../..:/workspace"]
+    ports: ["127.0.0.1:18358:18358"]
+    environment: ["CASCADEONE_BENCHMARK_RUN", "CASCADEONE_API_TOKEN", "CASCADEONE_BENCHMARK_MODE", "PYTHONUNBUFFERED=1"]
+    command: [python, inference/server.py, --cascade, cascades/laya-clef/confidence/cascade.yaml, --host, 0.0.0.0, --port, "18358"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18358/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 120

@@ -1,8 +1,8 @@
 # Laya → Clef
 
-The reference cascade runs **Laya (fast model)** and **Clef-Flash (strong model)**, using a frozen minimum-confidence threshold of **0.90**. It is a research configuration, not a demonstrated optimum.
+The Laya → Clef pair runs **Laya (fast model)** and **Clef-Flash (strong model)**. Its confidence variant uses a frozen minimum-confidence threshold of **0.90**; its pre-router variant escalates requests with more than one question before running Laya. Both are research configurations, not demonstrated optima.
 
-The logical model and routing definition is [`cascade.yaml`](cascade.yaml). The optional pre-router policy is a separate [`cascade-pre-router.yaml`](cascade-pre-router.yaml); Docker service deployment is defined in [`compose.yaml`](compose.yaml).
+There are **two independently launchable variants** of the Laya → Clef pair. The [confidence variant](confidence/cascade.yaml) uses a post-inference minimum-confidence threshold; the [pre-router variant](pre-router/cascade.yaml) uses a question-count rule before the fast model. Each variant owns its full [`compose.yaml`](confidence/compose.yaml) ([pre-router Compose](pre-router/compose.yaml)); no Compose inheritance is required. Both reuse the pair's model backend implementation.
 
 ## Requirements
 
@@ -16,20 +16,26 @@ A benchmark compares `fast_only`, `strong_only` and `cascade` on the same reques
 
 ~~~bash
 # Measure the three-arm cascade on three bundled synthetic decisions.
-./cascadeone benchmark smoke --cascade laya-clef \
+./cascadeone benchmark smoke --cascade laya-clef/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
 # Evaluate the same cascade on the pinned Civil Comments held-out dataset.
 # This uses a model-independent dataset; --suite is NOT required.
-./cascadeone benchmark evaluate --cascade laya-clef
+./cascadeone benchmark evaluate --cascade laya-clef/confidence
 
 # Example of evaluating another source without changing the cascade.
 # HellaSwag is a training-source dataset, NOT an independent held-out test.
-./cascadeone benchmark evaluate --cascade laya-clef \
+./cascadeone benchmark evaluate --cascade laya-clef/confidence \
   --dataset-id hellaswag-train-v1 --adapter hellaswag_gold_v1
 
-# List currently registered named setups for the default Laya → Clef profile.
-./cascadeone benchmark list --cascade laya-clef
+# List named setups for the confidence variant.
+./cascadeone benchmark list --cascade laya-clef/confidence
+
+# Run the pre-router variant with its own Compose stack and smoke setup.
+./cascadeone benchmark smoke --cascade laya-clef/pre-router
+
+# List benchmarks that use the pre-router variant.
+./cascadeone benchmark list --cascade laya-clef/pre-router
 ~~~
 
 Datasets are independent of models, but Laya's eligibility logic can reject unsupported or oversized inputs. A mandatory `fast_only` baseline may then fail rather than silently skip requests. The Civil Comments example contains 4,000 Gold-scored normalized records; unknown pretraining overlap remains a limitation. The synthetic smoke benchmark produces actual diagnostic measurements, not representative workload estimates. Currently there is no named Laya evaluation *suite* for batching; `--suite` is therefore unnecessary for these examples.
@@ -40,7 +46,7 @@ Start the same cascade as one HTTP System One decision model. The **same API tok
 
 ~~~bash
 # Start both model services and the public inference API; wait until healthy.
-./cascadeone inference start --cascade laya-clef \
+./cascadeone inference start --cascade laya-clef/confidence \
   --cuda-base nvcr.io/nvidia/vllm:26.07-py3
 
 # Ask for a decision, not only a list of installed models.
@@ -60,7 +66,7 @@ curl -i -sS http://127.0.0.1:18358/v1/systemone \
   }'
 
 # Stop the Laya → Clef containers.
-./cascadeone inference stop --cascade laya-clef
+./cascadeone inference stop --cascade laya-clef/confidence
 ~~~
 
-The API returns `answers.refund.probabilities`. `X-CascadeOne-Escalated` indicates whether Clef ran; no particular decision is guaranteed. To inspect the service, run `./cascadeone inference logs --cascade laya-clef`. See [inference API](../../inference/README.md) and [benchmark methodology](../../benchmarks/README.md) for detailed contracts, provenance and limitations.
+The API returns `answers.refund.probabilities`. `X-CascadeOne-Escalated` indicates whether Clef ran; no particular decision is guaranteed. To inspect the service, run `./cascadeone inference logs --cascade laya-clef/confidence`. See [inference API](../../inference/README.md) and [benchmark methodology](../../benchmarks/README.md) for detailed contracts, provenance and limitations.
