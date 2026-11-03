@@ -5,6 +5,7 @@ set -eu
 usage() {
   cat <<'USAGE'
 Usage:
+  ./cascadeone cascade list      # list available cascade definitions
   ./cascadeone benchmark list     --cascade PAIR [--suite NAME]
   ./cascadeone benchmark smoke    --cascade PAIR [--repeats N] [--cuda-base IMAGE]
   ./cascadeone benchmark evaluate --cascade PAIR [--benchmark ID | --dataset-id ID --adapter NAME | --suite NAME] [options]
@@ -65,9 +66,9 @@ while [ "$#" -gt 0 ]; do
     *) die "unknown option: $1" ;;
   esac
 done
-case "$cascade" in laya-clef|basal-pico-ultra) ;; *) die "invalid/missing --cascade" ;; esac
+case "$cascade" in laya-clef|basal-pico-ultra) ;; *) [ "$mode:$action" = cascade:list ] || die "invalid/missing --cascade" ;; esac
 case "$mode:$action" in
-  benchmark:list|benchmark:smoke|benchmark:evaluate|inference:start|inference:stop|inference:logs) ;;
+  cascade:list|benchmark:list|benchmark:smoke|benchmark:evaluate|inference:start|inference:stop|inference:logs) ;;
   *) die "unsupported command $mode $action" ;;
 esac
 case "$repeats" in ''|*[!0-9]*) die "--repeats must be positive" ;; esac
@@ -76,6 +77,32 @@ case "$repeats" in ''|*[!0-9]*) die "--repeats must be positive" ;; esac
 # The command always operates in its own repository regardless of current directory.
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 cd "$root"
+if [ "$mode:$action" = "cascade:list" ]; then
+  [ -z "$cascade$base$output$suite$benchmark$dataset$adapter" ] &&
+    [ "$output_set" = no ] && [ "$repeats_set" = no ] ||
+    die "cascade list does not accept selection or benchmark options"
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to list cascades"
+  # Inspect the YAML profiles directly; no Docker or GPU services are needed.
+  python3 - <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "cascades"))
+try:
+    from config import list_cascades
+except ImportError as exc:
+    raise SystemExit("cascade list requires PyYAML: python3 -m pip install PyYAML==6.0.2") from exc
+
+rows = [(name, config["fast"]["model_id"], config["strong"]["model_id"],
+         config["routing"]["type"]) for name, config in list_cascades(Path.cwd())]
+headers = ("CASCADE", "FAST MODEL", "STRONG MODEL", "ROUTING")
+widths = [max(len(row[i]) for row in [headers, *rows]) + 1 for i in range(3)]
+for row in [headers, *rows]:
+    print("\t".join(f"{cell:<{widths[i]}}" if i < 3 else cell
+                    for i, cell in enumerate(row)))
+PY
+  exit 0
+fi
+
 [ -f "cascades/$cascade/compose.yaml" ] || die "missing cascade Compose definition"
 compose_file="cascades/$cascade/compose.yaml"
 
@@ -112,7 +139,7 @@ cascade, suite = sys.argv[1:]
 rows = []
 for path in sorted(pathlib.Path("benchmarks").glob("*/benchmark.json")):
     setup = json.loads(path.read_text())
-    if setup["cascade"] != f"cascades/{cascade}/benchmark.json":
+    if setup["cascade"] != f"cascades/{cascade}/cascade.yaml":
         continue
     if suite and setup.get("suite") != suite:
         continue
@@ -144,7 +171,7 @@ if [ -n "$benchmark" ]; then
   dataset=$(python3 - "$setup" "$cascade" <<'PY'
 import json,sys
 setup=json.load(open(sys.argv[1],encoding="utf-8"))
-if setup.get("cascade") != f"cascades/{sys.argv[2]}/benchmark.json":
+if setup.get("cascade") != f"cascades/{sys.argv[2]}/cascade.yaml":
     sys.exit("benchmark setup belongs to another cascade")
 if setup.get("suite") == "smoke":
     sys.exit("for smoke setups use benchmark smoke")
@@ -160,7 +187,7 @@ if [ -n "$suite" ]; then
 import json,pathlib,sys
 suite,cascade=sys.argv[1:]
 setups=[json.loads(p.read_text()) for p in pathlib.Path("benchmarks").glob("*/benchmark.json")]
-if not any(s.get("suite")==suite and s.get("cascade")==f"cascades/{cascade}/benchmark.json" for s in setups):
+if not any(s.get("suite")==suite and s.get("cascade")==f"cascades/{cascade}/cascade.yaml" for s in setups):
     sys.exit("no matching setups")
 PY
 fi
@@ -278,12 +305,12 @@ elif [ -n "$benchmark" ]; then
   bench python benchmarks/runner.py --setup "$setup" --output "$output" --repeats "$repeats"
 elif [ -n "$adapter" ]; then
   bench python benchmarks/runner.py \
-    --cascade "cascades/$cascade/benchmark.json" \
+    --cascade "cascades/$cascade/cascade.yaml" \
     --dataset-id "$dataset" --adapter "$adapter" \
     --output "$output" --repeats "$repeats"
 elif [ "$cascade" = laya-clef ]; then
   bench python benchmarks/runner.py \
-    --cascade cascades/laya-clef/benchmark.json \
+    --cascade cascades/laya-clef/cascade.yaml \
     --dataset-id "$dataset" --adapter better_jev_heldout_gold_v1 \
     --output "$output" --repeats "$repeats"
 else

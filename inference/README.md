@@ -23,12 +23,13 @@ From the Community repository root on a compatible NVIDIA ARM64 GPU host, use th
 
 The image shown is an example **tag**, not an immutable digest; for strict reproduction use an approved, compatible image digest. The public endpoint is host-local at `http://127.0.0.1:18358`. Do not run both reference stacks simultaneously: both use that port. See the [Laya → Clef](../cascades/laya-clef/README.md) and [Basal Pico → Ultra](../cascades/basal-pico-ultra/README.md) guides for prerequisites.
 
-The same service can run without Compose if the model-backend URLs in the selected cascade JSON resolve from that process:
+The same service can run without Compose if the model-backend URLs in the selected cascade YAML resolve from that process:
 
 ~~~bash
 # Advanced: launch the Python proxy after starting both backends manually.
+# Install PyYAML==6.0.2 and export CASCADEONE_API_TOKEN first.
 # CASCADEONE_API_TOKEN must be exported; standalone mode does not generate it.
-python inference/server.py --cascade cascades/laya-clef/benchmark.json --host 127.0.0.1 --port 18358
+python inference/server.py --cascade cascades/laya-clef/cascade.yaml --host 127.0.0.1 --port 18358
 ~~~
 
 The standalone CLI requires **Python 3.12** but no extra API framework packages. The server waits up to 600 seconds for model services and verifies declared backend identity where supported.
@@ -99,7 +100,7 @@ Or outside Compose:
 
 ```bash
 python inference/server.py \
-  --cascade cascades/laya-clef/benchmark.json \
+  --cascade cascades/laya-clef/cascade.yaml \
   --benchmark output/benchmarks/MY-VERIFIED-RUN
 ```
 

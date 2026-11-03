@@ -1,0 +1,34 @@
+# CascadeOne logical cascade definition; independent of benchmark datasets.
+schema: cascadeone-cascade-v0.1
+id: basal-pico-ultra-h1
+fast:
+  model_id: Remek/basal-omni-pico
+  revision: b31750af3ef1b45adfa765f73edbb84b5362983a
+  url: http://fast:18357
+  mode: eager
+  orders: 1
+  backend:
+    implementation: basal-serve
+    package_version: 2.3.2
+    source_revision: 776fde6c7d50a37b1dc1cce2ec1219c056ef2d76
+    container_image: cascadeone-community-pico:basal232
+    execution_mode: eager
+    platform: linux/arm64
+strong:
+  model_id: Remek/basal-omni-1.0-ultra
+  revision: b8e214cb42d0a7a4cb2c3a93b0ba02c65d7590e4
+  url: http://strong:18357
+  mode: eager
+  orders: 1
+  backend:
+    implementation: basal-serve
+    package_version: 2.1.0
+    source_revision: 62542d31e8eb69000839c01e8f9b45da1fb80e49
+    container_image: cascadeone-community-ultra:basal210
+    execution_mode: eager
+    platform: linux/arm64
+routing:
+  type: confidence_threshold
+  parameters:
+    threshold: 0.6563522219657898
+    aggregation: minimum

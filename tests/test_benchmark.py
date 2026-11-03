@@ -136,7 +136,7 @@ class SmokeTests(unittest.TestCase):
              redirect_stdout(io.StringIO()):
             runner.main()
         args,kwargs=call.call_args
-        self.assertEqual(Path(args[0]).name,"benchmark.json")
+        self.assertEqual(Path(args[0]).name,"cascade.yaml")
         self.assertEqual(Path(args[1]).name,"source.jsonl")
         self.assertEqual(kwargs["adapter"],"typed_decisions_v1")
         self.assertEqual(kwargs["selection"],{"type":"all"})

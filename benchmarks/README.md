@@ -19,7 +19,7 @@ benchmarks/<dataset-and-split>__<models>__<strategy>/
 
 The strategy name includes the confidence aggregation and shortened
 threshold where relevant. The exact threshold, **model revisions and
-per-model backend profiles** live in the referenced cascade JSON.
+per-model backend profiles** live in the referenced cascade YAML (`cascades/<name>/cascade.yaml`). Benchmark setups themselves remain JSON.
 Dataset download and checksum verification belong in `datasets/`;
 selection, conversion, normalization and Gold interpretation belong
 to the benchmark setup, not the runtime.
@@ -35,7 +35,7 @@ example using the same held-out source.
 
 ## Run a benchmark
 
-The root-level **`./cascadeone` launcher** is the recommended entry point. It supplies one `CASCADEONE_API_TOKEN` to both the inference and benchmark containers, builds the Python runner (including Parquet support), acquires and verifies source files, waits for model readiness and validates results. Run from the `dist/CascadeOne-Community` repository root on a supported NVIDIA ARM64 GPU host.
+The root-level **`./cascadeone` launcher** is the recommended entry point. Discover launchable model pairs with `./cascadeone cascade list` (Python 3 with PyYAML, no GPU). It supplies one `CASCADEONE_API_TOKEN` to both the inference and benchmark containers, builds the Python runner (including Parquet support), acquires and verifies source files, waits for model readiness and validates results. Run from the `dist/CascadeOne-Community` repository root on a supported NVIDIA ARM64 GPU host.
 
 ~~~bash
 # Show registered benchmark configurations (ID, dataset ID and optional group); no GPU.

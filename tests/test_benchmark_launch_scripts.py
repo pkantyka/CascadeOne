@@ -1,7 +1,6 @@
 """CPU-only tests of the GPU benchmark launch scripts and inference readiness."""
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 import shutil
@@ -14,6 +13,8 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "benchmarks"))
 import wait_models
+sys.path.insert(0, str(ROOT / "cascades"))
+from config import load_cascade
 
 
 @unittest.skipUnless(shutil.which("sh"), "POSIX sh is required for shell launch tests")
@@ -106,7 +107,7 @@ class ScriptTests(unittest.TestCase):
 
 class ReadinessTests(unittest.TestCase):
     def test_checks_models_and_exact_inference_profile(self):
-        config = json.loads(wait_models.CONFIG.read_text())
+        config = load_cascade(wait_models.CONFIG)
         sha = wait_models.sha(wait_models.CONFIG)
         calls = []
 
@@ -130,7 +131,7 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(calls[-1], "http://inference:18358/v1/models")
 
     def test_inference_mismatch_blocks_benchmark(self):
-        config = json.loads(wait_models.CONFIG.read_text())
+        config = load_cascade(wait_models.CONFIG)
         def fake(url, timeout=15):
             if url.endswith("/health"): return {"status": "ok"}
             return {"models": [{"name": config["id"],

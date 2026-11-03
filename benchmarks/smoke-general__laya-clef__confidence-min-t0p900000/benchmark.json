@@ -1,7 +1,7 @@
 {
   "schema": "cascadeone-benchmark-setup-v1",
   "id": "smoke-general__laya-clef__confidence-min-t0p900000",
-  "cascade": "cascades/laya-clef/benchmark.json",
+  "cascade": "cascades/laya-clef/cascade.yaml",
   "dataset": {
     "id": "smoke-general-v1"
   },

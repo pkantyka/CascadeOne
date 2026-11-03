@@ -14,8 +14,10 @@ import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"datasets"))
 sys.path.insert(0,str(ROOT/"tools"))
+sys.path.insert(0,str(ROOT/"cascades"))
 from catalog import resolve  # noqa: E402
 from identity import benchmark_id  # noqa: E402
+from config import load_cascade  # noqa: E402
 from runner import run, load_dataset, sha  # noqa: E402
 from validate_result import validate  # noqa: E402
 
@@ -28,12 +30,12 @@ def benchmark_setups(suite, cascade=None):
         config=json.loads(path.read_text(encoding="utf-8"))
         ident=config.get("id")
         cascade_path=ROOT/config["cascade"]
-        cascade_config=json.loads(cascade_path.read_text(encoding="utf-8"))
+        cascade_config=load_cascade(cascade_path)
         if ident!=path.parent.name or ident!=benchmark_id(config,cascade_config):
             raise ValueError("benchmark ID does not match dataset, models and strategy: "+str(path))
         if ident in ids: raise ValueError("duplicate benchmark ID: "+ident)
         ids.add(ident)
-        if config.get("suite")==suite and (cascade is None or config["cascade"]==f"cascades/{cascade}/benchmark.json"):
+        if config.get("suite")==suite and (cascade is None or config["cascade"]==f"cascades/{cascade}/cascade.yaml"):
             selected.append(path)
     return selected
 
@@ -122,7 +124,7 @@ def main():
     report=[]
     for spath in setups:
         setup=json.loads(spath.read_text(encoding="utf-8"))
-        cascade_config=json.loads((ROOT/setup["cascade"]).read_text(encoding="utf-8"))
+        cascade_config=load_cascade(ROOT/setup["cascade"])
         # Three-arm comparison is mandatory; no special-case single-model
         # benchmark exists. Only the cascade arm uses routing strategy.
         if "fast" not in cascade_config or "strong" not in cascade_config or "routing" not in cascade_config:

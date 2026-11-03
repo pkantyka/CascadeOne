@@ -15,6 +15,8 @@ sys.path.insert(0,str(ROOT/"datasets"))
 import identity  # noqa: E402
 import run_confidence_wide as suite  # noqa: E402
 import download_wide  # noqa: E402
+sys.path.insert(0, str(ROOT / "cascades"))
+from config import load_cascade
 
 
 class SemanticBenchmarkTests(unittest.TestCase):
@@ -36,7 +38,7 @@ class SemanticBenchmarkTests(unittest.TestCase):
         for path in directories:
             with self.subTest(name=path.parent.name):
                 setup=json.loads(path.read_text(encoding="utf-8"))
-                cascade=json.loads((ROOT/setup["cascade"]).read_text(encoding="utf-8"))
+                cascade=load_cascade(ROOT/setup["cascade"])
                 self.assertEqual(path.parent.name,setup["id"])
                 self.assertEqual(path.parent.name,identity.benchmark_id(setup,cascade))
                 self.assertEqual(path.parent.name.count("__"),2)

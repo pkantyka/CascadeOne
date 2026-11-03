@@ -41,14 +41,17 @@ services:
     command: [python, benchmarks/runner.py, --inference-url, http://inference:18358, --setup, benchmarks/smoke-general__laya-clef__confidence-min-t0p900000/benchmark.json, --output, output/laya-smoke]
 
   inference:
-    image: python:3.12-slim
+    image: cascadeone-community-inference:pyyaml602
+    build:
+      context: ../..
+      dockerfile: inference/Dockerfile
     profiles: [inference]
     depends_on: [fast, strong]
     working_dir: /workspace
     volumes: ["../..:/workspace"]
     ports: ["127.0.0.1:18358:18358"]
     environment: ["CASCADEONE_BENCHMARK_RUN", "CASCADEONE_API_TOKEN", "CASCADEONE_BENCHMARK_MODE", "PYTHONUNBUFFERED=1"]
-    command: [python, inference/server.py, --cascade, cascades/laya-clef/benchmark.json, --host, 0.0.0.0, --port, "18358"]
+    command: [python, inference/server.py, --cascade, cascades/laya-clef/cascade.yaml, --host, 0.0.0.0, --port, "18358"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18358/health', timeout=3)"]
       interval: 5s

@@ -78,7 +78,7 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = "\n".join(self.calls())
         self.assertIn("datasets/catalog.py acquire bjb-civil-comments-heldout-v1", commands)
-        self.assertIn("--cascade cascades/laya-clef/benchmark.json --dataset-id bjb-civil-comments-heldout-v1", commands)
+        self.assertIn("--cascade cascades/laya-clef/cascade.yaml --dataset-id bjb-civil-comments-heldout-v1", commands)
         self.assertNotIn("--suite", commands)
 
     def test_model_independent_dataset_and_adapter(self):
@@ -147,6 +147,32 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(len(filtered), 11)
         self.assertTrue(all(row[2] == "external" for row in filtered[1:]))
         self.assertFalse(self.commands.exists())
+
+    def test_cascade_list_formats_yaml_profiles_without_docker(self):
+        result = self.call("cascade", "list")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        rows = [line.split("\t") for line in result.stdout.splitlines()]
+        self.assertEqual([cell.strip() for cell in rows[0]],
+                         ["CASCADE", "FAST MODEL", "STRONG MODEL", "ROUTING"])
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(all(len(row) == 4 for row in rows))
+        self.assertEqual(len({len(row[0]) for row in rows}), 1)
+        self.assertEqual(len({len(row[1]) for row in rows}), 1)
+        self.assertEqual(len({len(row[2]) for row in rows}), 1)
+        values = {row[0].strip(): row for row in rows[1:]}
+        self.assertEqual(set(values), {"laya-clef", "basal-pico-ultra"})
+        self.assertIn("Remek/basal-omni-pico", values["basal-pico-ultra"][1])
+        self.assertIn("Cloudflare/clef-flash", values["laya-clef"][2])
+        self.assertEqual(values["laya-clef"][3], "confidence_threshold")
+        self.assertFalse(self.commands.exists())
+
+    def test_cascade_list_rejects_selection_options(self):
+        for option in (("--cascade", "laya-clef"), ("--suite", "external"),
+                       ("--cuda-base", "example"), ("--repeats", "3")):
+            with self.subTest(option=option):
+                result = self.call("cascade", "list", *option)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(self.commands.exists())
 
     def test_errors_before_starting_models(self):
         cases = (

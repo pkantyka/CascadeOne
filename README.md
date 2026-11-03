@@ -13,6 +13,9 @@ The term *cascade* refers to conditional escalation: requests that the routing p
 On an **ARM64 NVIDIA GPU** host with Docker Compose v2 and sufficient VRAM, run from the `dist/CascadeOne-Community` repository root. The `./cascadeone` launcher handles Docker startup, dataset acquisition, benchmark authorization and result validation.
 
 ~~~bash
+# List available cascades, including model pairs and routing (no GPU needed).
+./cascadeone cascade list
+
 # List available named benchmarks for a cascade (no GPU needed).
 ./cascadeone benchmark list --cascade basal-pico-ultra
 
@@ -41,6 +44,14 @@ On an **ARM64 NVIDIA GPU** host with Docker Compose v2 and sufficient VRAM, run 
 Omit `--cuda-base` to use the Compose default `nvcr.io/nvidia/vllm:26.07-py3`. This tag is **not** immutable; for strict reproducibility provide an approved, compatible image digest instead. The launcher uses **one API token** for inference and benchmarks: when `CASCADEONE_API_TOKEN` is set, it is used **without reading or writing `.cascadeone/token`**; otherwise the launcher creates/reuses that Git-ignored file with `0600` permissions. `POST /v1/systemone` requires `Authorization: Bearer <token>` in both modes. Benchmark-only endpoints are enabled only during benchmark runs. Run only one reference stack at a time because they share host port `18358`. To supply your own token without writing a token file, export `CASCADEONE_API_TOKEN` before running `./cascadeone`; API calls must include `Authorization: Bearer <token>`. See the [inference API example](inference/README.md#client-api).
 
 See [Main usage modes](#main-usage-modes), [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md).
+
+## Cascade definitions
+
+Each launchable cascade has a **YAML** definition at `cascades/<name>/cascade.yaml`, specifying its model pair, pinned model/backend revisions and routing policy. `cascades/<name>/compose.yaml` separately defines how its services run in Docker. An additional routing variant is stored as [`cascades/laya-clef/cascade-pre-router.yaml`](cascades/laya-clef/cascade-pre-router.yaml); `cascade list` shows the two default launchable profiles, not every routing variant.
+
+Benchmark configurations remain **JSON** (`benchmarks/<benchmark-id>/benchmark.json`), referencing a YAML cascade and defining a dataset, adapter and selection. Run `./cascadeone cascade list` to see the launchable profiles. This local listing command requires Python 3 and PyYAML (`python3 -m pip install PyYAML==6.0.2`); no Docker or GPU is needed. The inference and benchmark Docker images install the pinned YAML parser automatically.
+
+**Reproducibility note:** Converting cascade definitions from JSON to YAML changes their file SHA-256. Existing reports produced with the former JSON files will not match the new definition hashes; rerun benchmarks rather than bypassing the identity check.
 
 ## Repository
 
@@ -79,7 +90,7 @@ flowchart TD
 
 ## What is included
 
-- **Launcher:** [`./cascadeone`](cascadeone) starts inference or benchmarks, accepts an optional `--cuda-base` and batches tests only when `--suite` is explicitly provided.
+- **Launcher:** [`./cascadeone`](cascadeone) lists YAML cascades with `cascade list`, starts inference or benchmarks, accepts an optional `--cuda-base` and batches tests only when `--suite` is explicitly provided.
 - **Two reference cascades:** [Laya → Clef](cascades/laya-clef/README.md) and [Basal Pico → Ultra](cascades/basal-pico-ultra/README.md), with versioned model configurations and Docker Compose definitions.
 - **A policy-driven cascade runtime:** [cascades/runtime.py](cascades/runtime.py) and [cascades/policies.py](cascades/policies.py).
 - **Local inference API:** [inference/](inference/README.md) serves a configured cascade through one System One endpoint, with validated benchmark-based startup warnings.

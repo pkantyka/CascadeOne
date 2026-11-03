@@ -2,6 +2,8 @@
 
 The reference cascade runs **Basal Pico (fast model)** and **Basal Ultra (strong model)** with the frozen minimum-confidence threshold **0.6563522219657898**. The independently pinned `basal-serve` versions are 2.3.2 (Pico) and 2.1.0 (Ultra), in `eager` mode.
 
+The logical model and routing definition is [`cascade.yaml`](cascade.yaml); Docker service deployment is defined in [`compose.yaml`](compose.yaml).
+
 ## Requirements
 
 Run from the `dist/CascadeOne-Community` repository root on an **ARM64 NVIDIA GPU host** (for example DGX Spark). You need Docker Compose v2 with `--wait` support, sufficient RAM/VRAM for both models and access to their pinned Hugging Face revisions. The default CUDA/PyTorch image is `nvcr.io/nvidia/vllm:26.07-py3`. It is a **tag**, not an immutable digest, and full clean-host GPU validation is still pending.

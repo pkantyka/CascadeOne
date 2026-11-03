@@ -23,6 +23,7 @@ import urllib.error
 from telemetry import Telemetry
 from adapters import normalize
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'cascades'))
+from config import load_cascade
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -191,7 +192,7 @@ def summarize(rows,phase):
     return result
 
 def run(config_path,dataset_path,output,repeats=2,warmup=3,timeout=360,phase="colocated",seed=20261026,dataset_identity=None,adapter="typed_decisions_v1",selection=None,setup_identity=None,inference_url=None,api_token=None):
-    config=json.loads(Path(config_path).read_text(encoding="utf-8"))
+    config=load_cascade(config_path)
     if config.get("schema")!="cascadeone-cascade-v0.1": raise ValueError("wrong cascade schema")
     if repeats<1 or warmup<0: raise ValueError("invalid repeats/warmup")
     inference_url=inference_url or os.environ.get("CASCADEONE_INFERENCE_URL","http://inference:18358")

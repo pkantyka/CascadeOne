@@ -2,6 +2,8 @@
 
 The reference cascade runs **Laya (fast model)** and **Clef-Flash (strong model)**, using a frozen minimum-confidence threshold of **0.90**. It is a research configuration, not a demonstrated optimum.
 
+The logical model and routing definition is [`cascade.yaml`](cascade.yaml). The optional pre-router policy is a separate [`cascade-pre-router.yaml`](cascade-pre-router.yaml); Docker service deployment is defined in [`compose.yaml`](compose.yaml).
+
 ## Requirements
 
 Run the commands from the `dist/CascadeOne-Community` repository root on an **ARM64 NVIDIA GPU host** (for example DGX Spark). Docker Compose v2 with `--wait` support, sufficient GPU RAM for both models, pinned Hugging Face model access and a compatible NVIDIA/PyTorch base are required. This deployment has **not** been fully validated end-to-end on a clean GPU host.

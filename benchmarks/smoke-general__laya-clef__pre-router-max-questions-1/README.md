@@ -3,7 +3,7 @@
 One benchmark = source/split + model pair + routing policy.
 
 - Original dataset ID: smoke-general-v1.
-- Cascade configuration: cascades/laya-clef/benchmark-pre-router.json.
+- Cascade configuration: cascades/laya-clef/cascade-pre-router.yaml.
 - Routing policy: pre-router-max-questions-1.
 - Dataset selection: {"type":"all"}.
 - Every execution compares fast_only, strong_only and cascade on identical requests.

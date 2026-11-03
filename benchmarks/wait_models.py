@@ -1,15 +1,17 @@
 """Wait for Pico, Ultra, and the matching CascadeOne inference service."""
 import argparse
-import json
 from pathlib import Path
 import time
 from runner import check_identity, request_json, sha
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG = ROOT / "cascades/basal-pico-ultra/benchmark.json"
+CONFIG = ROOT / "cascades/basal-pico-ultra/cascade.yaml"
+import sys
+sys.path.insert(0, str(ROOT / "cascades"))
+from config import load_cascade
 
 def check_ready(inference_url):
-    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    config = load_cascade(CONFIG)
     for role in ("fast", "strong"):
         endpoint = config[role]["url"].rstrip("/")
         request_json(endpoint + "/health", timeout=15)

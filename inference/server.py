@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "cascades"))
 from runtime import Cascade
+from config import load_cascade
 from inference.report import read_report, startup_lines
 
 
@@ -111,7 +112,7 @@ class Service:
                  min_speedup_pct=10.0, max_quality_loss_pp=2.0, max_p95_ratio=1.10,
                  api_token=None, benchmark_mode=False, strong_alone=False):
         path = Path(cascade_path).resolve()
-        self.config = json.loads(path.read_text(encoding="utf-8"))
+        self.config = load_cascade(path)
         if self.config.get("schema") != "cascadeone-cascade-v0.1":
             raise ValueError("unsupported cascade schema")
         if timeout <= 0:

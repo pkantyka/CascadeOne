@@ -3,7 +3,7 @@
 One benchmark = source/split + model pair + routing policy.
 
 - Original dataset ID: n4ze3m-typed-decisions-v1.
-- Cascade configuration: cascades/basal-pico-ultra/benchmark.json.
+- Cascade configuration: cascades/basal-pico-ultra/cascade.yaml.
 - Routing policy: confidence-min-t0p656352.
 - Dataset selection: {"type":"hash_range","start":0.0,"end":0.15,"seed":20261027}.
 - Every execution compares fast_only, strong_only and cascade on identical requests.
