@@ -109,13 +109,20 @@ if [ "$action" = list ]; then
   python3 - "$cascade" "$suite" <<'PY'
 import json, pathlib, sys
 cascade, suite = sys.argv[1:]
+rows = []
 for path in sorted(pathlib.Path("benchmarks").glob("*/benchmark.json")):
     setup = json.loads(path.read_text())
     if setup["cascade"] != f"cascades/{cascade}/benchmark.json":
         continue
     if suite and setup.get("suite") != suite:
         continue
-    print(f"{setup['id']}\t{setup['dataset']['id']}\t{setup.get('suite', '-')}")
+    rows.append((setup["id"], setup["dataset"]["id"], setup.get("suite", "-")))
+
+# Pad fields before tab separators: readable in terminals and still TSV-friendly.
+headers = ("BENCHMARK", "DATASET", "SUITE")
+widths = [max(len(row[i]) for row in [headers, *rows]) + 1 for i in (0, 1)]
+for bench, dataset, group in [headers, *rows]:
+    print(f"{bench:<{widths[0]}}\t{dataset:<{widths[1]}}\t{group}")
 PY
   exit 0
 fi

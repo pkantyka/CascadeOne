@@ -124,6 +124,30 @@ class LauncherTests(unittest.TestCase):
         self.assertNotIn("smoke-general__", selected.stdout)
         self.assertFalse(self.commands.exists())
 
+    def test_benchmark_list_has_headers_and_aligned_columns(self):
+        result = self.call("benchmark", "list", "--cascade", "basal-pico-ultra")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = result.stdout.splitlines()
+        self.assertGreater(len(lines), 2)
+        columns = [line.split("\t") for line in lines]
+        self.assertTrue(all(len(row) == 3 for row in columns))
+        self.assertEqual([cell.strip() for cell in columns[0]],
+                         ["BENCHMARK", "DATASET", "SUITE"])
+        self.assertEqual(len({len(row[0]) for row in columns}), 1)
+        self.assertEqual(len({len(row[1]) for row in columns}), 1)
+        self.assertEqual({row[2] for row in columns[1:]},
+                         {"smoke", "source", "wide", "external"})
+
+        selected = self.call("benchmark", "list", "--cascade",
+                             "basal-pico-ultra", "--suite", "external")
+        self.assertEqual(selected.returncode, 0, selected.stderr)
+        filtered = [line.split("\t") for line in selected.stdout.splitlines()]
+        self.assertEqual([c.strip() for c in filtered[0]],
+                         ["BENCHMARK", "DATASET", "SUITE"])
+        self.assertEqual(len(filtered), 11)
+        self.assertTrue(all(row[2] == "external" for row in filtered[1:]))
+        self.assertFalse(self.commands.exists())
+
     def test_errors_before_starting_models(self):
         cases = (
             ("benchmark", "evaluate", "--cascade", "basal-pico-ultra",
